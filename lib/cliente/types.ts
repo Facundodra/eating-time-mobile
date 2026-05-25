@@ -7,11 +7,21 @@ export type ClienteDto = {
   fotoPerfil?: string;
 };
 
-export type PuntoDeEntregaDto = {
-  id: string;
-  alias: string;
-  direccion: string;
-  ciudad: string;
-  piso?: string;
-  departamento?: string;
+export type PuntoDeEntrega = {
+  id: number;
+  localidad: string;
+  calle: string;
+  numero: string;
+  nroApto: string | null;
+  indicaciones: string | null;
+  creacion: string;
+  clienteId: number;
+};
+
+export type PuntoEntregaCredentials = {
+  localidad: string;
+  calle: string;
+  numero: string;
+  nroApto?: string;
+  indicaciones?: string;
 };

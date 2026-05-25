@@ -1,9 +1,13 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function MiCuentaScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>Mi cuenta</Text>
+      <TouchableOpacity onPress={() => router.push("/cliente/puntos-de-entrega")}>
+          <Text>Puntos de entrega</Text>
+      </TouchableOpacity>
     </View>
   );
 }
