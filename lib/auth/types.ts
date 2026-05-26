@@ -1,6 +1,6 @@
 export type AuthUser = {
   id: string;
-  roleId: string;
+  roleId: string;     // saque el '?' para exigir que lo traiga y que sea string
   role: 'CLIENTE';
   name: string;
   email: string;
