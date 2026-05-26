@@ -5,16 +5,14 @@ import type { AuthUser, LoginCredentials } from './types';
 
 type AuthContextValue = {
   user: AuthUser | null;
-  token: string | null;
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
-  setSession: (token: string, user: AuthUser) => Promise<void>;
+  setSession: (user: AuthUser, sessionId?: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextValue>({
   user: null,
-  token: null,
   isLoading: true,
   login: async () => {},
   logout: async () => {},
@@ -23,39 +21,40 @@ export const AuthContext = createContext<AuthContextValue>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     getSession().then((session) => {
       if (session) {
         setUser(session.user);
-        setToken(session.token);
       }
       setIsLoading(false);
     });
   }, []);
 
-  async function setSession(newToken: string, newUser: AuthUser) {
-    await saveSession(newToken, newUser);
-    setToken(newToken);
+  async function setSession(newUser: AuthUser, sessionId?: string) {
+    await saveSession(newUser, sessionId);
     setUser(newUser);
   }
 
   async function login(credentials: LoginCredentials) {
     const { authService } = await import('@/services/auth-service');
-    const { token: newToken, user: newUser } = await authService.login(credentials);
-    await setSession(newToken, newUser);
+    const { sessionId, user: newUser } = await authService.login(credentials);
+    await setSession(newUser, sessionId);
   }
 
   async function logout() {
-    await clearSession();
-    setUser(null);
-    setToken(null);
+    try {
+      const { authService } = await import('@/services/auth-service');
+      await authService.logout();
+    } finally {
+      await clearSession();
+      setUser(null);
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout, setSession }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, setSession }}>
       {children}
     </AuthContext.Provider>
   );

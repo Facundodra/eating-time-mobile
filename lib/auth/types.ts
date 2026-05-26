@@ -1,13 +1,14 @@
 export type AuthUser = {
   id: string;
-  roleId?: string;
+  roleId: string;
+  role: 'CLIENTE';
   name: string;
   email: string;
 };
 
 export type AuthSession = {
   user: AuthUser;
-  token: string;
+  sessionId?: string;
 };
 
 export type LoginCredentials = {
@@ -25,8 +26,7 @@ export type RegisterCredentials = {
 };
 
 export type LoginMobileResponse = {
-  token: string;
+  tipoUsuario: 'CLIENTE';
   idUsuario: number;
-  nombre: string;
-  email: string;
+  idTipoUsuario: number;
 };
