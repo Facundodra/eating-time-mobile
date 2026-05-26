@@ -44,7 +44,7 @@ export default function PuntosDeEntregaScreen() {
     setListLoading(true);
     setListError(null);
     try {
-      const data = await clienteService.getPuntosEntrega(user.id);
+      const data = await clienteService.getPuntosEntrega(user.roleId);
       setPuntos(data);
     } catch (e) {
       setListError(e instanceof Error ? e.message : 'Error al cargar');
@@ -60,7 +60,7 @@ export default function PuntosDeEntregaScreen() {
     setFormError(null);
     setFormLoading(true);
     try {
-      await clienteService.addPuntoEntrega(user.id, {
+      await clienteService.addPuntoEntrega(user.roleId, {
         localidad: data.localidad,
         calle: data.calle,
         numero: data.numero,
@@ -246,7 +246,9 @@ export default function PuntosDeEntregaScreen() {
 
               {formError && (
                 <View style={styles.errorBanner}>
-                  <Text style={styles.errorBannerText}>{formError}</Text>
+                  <Text style={styles.errorBannerText}>
+                    {formError == 'Conflict' ? 'Ya existe un punto de entrega con ese número de puerta registrado para este cliente' : formError}
+                    </Text>
                 </View>
               )}
 
