@@ -1,18 +1,52 @@
-import axios from 'axios';
+import axios, { type AxiosError } from 'axios';
 
 import type { AuthUser, LoginCredentials, LoginMobileResponse, RegisterCredentials } from '@/lib/auth/types';
-import { apiClient } from './api-client';
+import { apiClient, extractSessionId } from './api-client';
 
-type LoginResult = { token: string; user: AuthUser };
+type LoginResult = { sessionId?: string; user: AuthUser };
+type ErrorResponse = { error?: string; message?: string };
+
+export class LoginError extends Error {
+  constructor(
+    message: string,
+    public readonly status?: number
+  ) {
+    super(message);
+    this.name = 'LoginError';
+  }
+}
 
 async function login(credentials: LoginCredentials): Promise<LoginResult> {
-  const { data } = await apiClient.post<LoginMobileResponse>('/api/auth/login-mobile', credentials);
-  const user: AuthUser = {
-    id: String(data.idUsuario),
-    name: data.nombre,
-    email: data.email,
-  };
-  return { token: data.token, user };
+  try {
+    const fcmToken = await getLoginFcmToken();
+    const response = await apiClient.post<LoginMobileResponse>('/api/auth/login-mobile', {
+      ...credentials,
+      fcmToken,
+    });
+
+    const user: AuthUser = {
+      id: String(response.data.idUsuario),
+      roleId: String(response.data.idTipoUsuario),
+      role: response.data.tipoUsuario,
+      name: credentials.email,
+      email: credentials.email,
+    };
+
+    return {
+      sessionId: extractSessionId(response.headers['set-cookie']),
+      user,
+    };
+  } catch (error) {
+    if (axios.isAxiosError<ErrorResponse>(error)) {
+      throw mapLoginError(error);
+    }
+
+    if (error instanceof LoginError) {
+      throw error;
+    }
+
+    throw new LoginError('No se pudo iniciar sesión. Intentalo nuevamente.');
+  }
 }
 
 async function register(credentials: RegisterCredentials): Promise<void> {
@@ -55,6 +89,56 @@ async function register(credentials: RegisterCredentials): Promise<void> {
 
 async function logout(): Promise<void> {
   await apiClient.post('/api/auth/logout', { isMobile: true });
+}
+
+async function getLoginFcmToken(): Promise<string> {
+  try {
+    const {
+      configureNotifications,
+      getFirebaseDeviceToken,
+      requestNotificationPermissions,
+    } = await import('@/services/notifications');
+
+    await configureNotifications();
+    const granted = await requestNotificationPermissions();
+
+    if (!granted) {
+      throw new LoginError('Necesitamos permisos de notificaciones para iniciar sesión.');
+    }
+
+    return await getFirebaseDeviceToken();
+  } catch (error) {
+    if (error instanceof LoginError) {
+      throw error;
+    }
+
+    throw new LoginError(
+      'No se pudo obtener el token de notificaciones. Probá desde un development build.'
+    );
+  }
+}
+
+function mapLoginError(error: AxiosError<ErrorResponse>) {
+  const status = error.response?.status;
+  const responseMessage = error.response?.data?.error ?? error.response?.data?.message;
+
+  if (!error.response) {
+    return new LoginError('No se pudo conectar con el servidor.');
+  }
+
+  if (status === 400) {
+    return new LoginError(responseMessage ?? 'Revisá los datos ingresados.', 400);
+  }
+
+  if (status === 401) {
+    return new LoginError('Credenciales incorrectas', 401);
+  }
+
+  if (status === 403) {
+    return new LoginError(responseMessage ?? 'No tenés permiso para ingresar.', 403);
+  }
+
+  return new LoginError('No se pudo iniciar sesión. Intentalo nuevamente.', status);
 }
 
 export const authService = { login, register, logout };
