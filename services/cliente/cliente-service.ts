@@ -100,4 +100,5 @@ export async function getLocales(params?: LocalesParams): Promise<Page<LocalDto>
     last: start + size >= mock.length,
     empty: content.length === 0,
   };
+  
 }
