@@ -1,11 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import { Brand } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
-import { LocalList } from '@/lib/cliente/types';
+import type { LocalDto, LocalesParams } from '@/lib/cliente/types';
 import { getLocales } from '@/services/cliente/cliente-service';
 import { CheckCircleIcon, MoonIcon, StarIcon } from 'react-native-heroicons/outline';
+
+const PAGE_SIZE = 10;
 
 type SortKey = 'calificacion_desc' | 'calificacion_asc' | 'nombre_asc' | 'nombre_desc';
 
@@ -16,12 +28,14 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'nombre_desc',       label: 'Z–A' },
 ];
 
-const sortFns: Record<SortKey, (a: LocalList, b: LocalList) => number> = {
-  calificacion_desc: (a, b) => b.califiacion - a.califiacion,
-  calificacion_asc:  (a, b) => a.califiacion - b.califiacion,
-  nombre_asc:        (a, b) => a.nombre.localeCompare(b.nombre),
-  nombre_desc:       (a, b) => b.nombre.localeCompare(a.nombre),
-};
+function sortToParams(sort: SortKey): Pick<LocalesParams, 'ordenarPor' | 'direccion'> {
+  switch (sort) {
+    case 'calificacion_desc': return { ordenarPor: 'calificacion', direccion: 'desc' };
+    case 'calificacion_asc':  return { ordenarPor: 'calificacion', direccion: 'asc' };
+    case 'nombre_asc':        return { ordenarPor: 'nombre', direccion: 'asc' };
+    case 'nombre_desc':       return { ordenarPor: 'nombre', direccion: 'desc' };
+  }
+}
 
 function SkeletonGrid() {
   return (
@@ -41,40 +55,122 @@ function SkeletonGrid() {
   );
 }
 
+function LocalCard({ local }: { local: LocalDto }) {
+  return (
+    <TouchableOpacity
+      style={styles.col}
+      activeOpacity={0.85}
+      onPress={() => router.push(`/local/${local.id}`)}
+    >
+      <View style={styles.card}>
+        <View style={styles.imgWrapper}>
+          {local.urlFoto ? (
+            <Image style={styles.img} source={{ uri: local.urlFoto }} resizeMode="contain" />
+          ) : (
+            <View style={[styles.img, styles.imgPlaceholder]} />
+          )}
+          <View style={[styles.badge, local.estadoServicio ? styles.badgeOpen : styles.badgeClosed]}>
+            {local.estadoServicio
+              ? <CheckCircleIcon size={11} color="#065F46" strokeWidth={2} />
+              : <MoonIcon size={11} color="#6B7280" strokeWidth={2} />}
+            <Text style={[styles.badgeText, local.estadoServicio ? styles.badgeTextOpen : styles.badgeTextClosed]}>
+              {local.estadoServicio ? 'Abierto' : 'Cerrado'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.info}>
+          <Text style={styles.nombre} numberOfLines={1}>{local.nombre}</Text>
+          <Text style={styles.descripcion} numberOfLines={2}>{local.descripcion}</Text>
+          <View style={styles.ratingRow}>
+            <StarIcon size={13} color="#FB923C" strokeWidth={2} />
+            <Text style={styles.ratingText}>
+              {local.calificacion != null ? Number(local.calificacion).toFixed(1) : '—'}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export default function HomeListado() {
   const { user } = useAuth();
-  const [listLoading, setListLoading] = useState(true);
-  const [listError, setListError] = useState<string | null>(null);
-  const [locales, setLocales] = useState<LocalList[]>([]);
 
-  const [sort, setSort] = useState<SortKey>('calificacion_desc');
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [locales, setLocales]         = useState<LocalDto[]>([]);
+  const [page, setPage]               = useState(0);
+  const [isLastPage, setIsLastPage]   = useState(false);
+  const [listLoading, setListLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [listError, setListError]     = useState<string | null>(null);
+
+  const [sort, setSort]               = useState<SortKey>('calificacion_desc');
+  const [filterOpen, setFilterOpen]   = useState(false);
   const [filterStars, setFilterStars] = useState(false);
 
-  const loadLocales = useCallback(async () => {
-    if (!user) return;
+  const abortRef = useRef<AbortController | null>(null);
+
+  const buildParams = useCallback((pageNum: number): LocalesParams => ({
+    ...sortToParams(sort),
+    ...(filterOpen  ? { servicio: 'ACTIVO' as const } : {}),
+    ...(filterStars ? { calificacionMin: 4 } : {}),
+    page: pageNum,
+    size: PAGE_SIZE,
+  }), [sort, filterOpen, filterStars]);
+
+  const fetchFirst = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     setListLoading(true);
     setListError(null);
+    setLocales([]);
+    setPage(0);
+    setIsLastPage(false);
+
     try {
-      const data = await getLocales(user.roleId);
-      setLocales(data);
+      const result = await getLocales(buildParams(0));
+      if (ctrl.signal.aborted) return;
+      setLocales(result.content);
+      setIsLastPage(result.last);
+      setPage(0);
     } catch (e) {
-      setListError(e instanceof Error ? e.message : 'Error al cargar');
+      if (ctrl.signal.aborted) return;
+      setListError(e instanceof Error ? e.message : 'Error al cargar los locales');
     } finally {
-      setListLoading(false);
+      if (!ctrl.signal.aborted) setListLoading(false);
     }
-  }, [user]);
+  }, [buildParams]);
 
-  useEffect(() => { loadLocales(); }, [loadLocales]);
+  useEffect(() => { fetchFirst(); }, [fetchFirst]);
 
-  let processed = [...locales];
-  if (filterOpen)  processed = processed.filter(l => l.estado_servicio);
-  if (filterStars) processed = processed.filter(l => l.califiacion >= 4);
-  processed.sort(sortFns[sort]);
+  const loadMore = useCallback(async () => {
+    if (loadingMore || listLoading || isLastPage) return;
+
+    setLoadingMore(true);
+    const nextPage = page + 1;
+
+    try {
+      const result = await getLocales(buildParams(nextPage));
+      setLocales(prev => [...prev, ...result.content]);
+      setIsLastPage(result.last);
+      setPage(nextPage);
+    } catch {
+      // Error silencioso en paginación
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, listLoading, isLastPage, page, buildParams]);
+
+  const pairs = locales.reduce<LocalDto[][]>((acc, item, i) => {
+    if (i % 2 === 0) acc.push([item]);
+    else acc[acc.length - 1].push(item);
+    return acc;
+  }, []);
 
   return (
     <View style={styles.root}>
-      {/* Barra de filtros */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -115,53 +211,38 @@ export default function HomeListado() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Contenido */}
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {listError ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{listError}</Text>
-          </View>
-        ) : listLoading ? (
-          <SkeletonGrid />
-        ) : processed.length === 0 ? (
-          <Text style={styles.emptyText}>No se encontraron resultados</Text>
-        ) : (
-          <View style={styles.grid}>
-            {processed.map(local => (
-              <TouchableOpacity key={local.id} style={styles.col} activeOpacity={0.85}>
-                <View style={styles.card}>
-                  {/* Imagen + badge */}
-                  <View style={styles.imgWrapper}>
-                    <Image style={styles.img} source={local.url_foto as any} />
-                    <View style={[styles.badge, local.estado_servicio ? styles.badgeOpen : styles.badgeClosed]}>
-                      {local.estado_servicio
-                        ? <CheckCircleIcon size={11} color="#065F46" strokeWidth={2} />
-                        : <MoonIcon size={11} color="#6B7280" strokeWidth={2} />}
-                      <Text style={[styles.badgeText, local.estado_servicio ? styles.badgeTextOpen : styles.badgeTextClosed]}>
-                        {local.estado_servicio ? 'Abierto' : 'Cerrado'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Info */}
-                  <View style={styles.info}>
-                    <View style={styles.nombreRow}>
-                      <View style={styles.logoCircle}>
-                        <Image style={styles.logoImg} source={local.url_foto as any} />
-                      </View>
-                      <Text style={styles.nombre} numberOfLines={1}>{local.nombre}</Text>
-                    </View>
-                    <View style={styles.ratingRow}>
-                      <StarIcon size={13} color="#FB923C" strokeWidth={2} />
-                      <Text style={styles.ratingText}>{local.califiacion}</Text>
-                    </View>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+      {listLoading ? (
+        <SkeletonGrid />
+      ) : listError ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{listError}</Text>
+          <TouchableOpacity onPress={fetchFirst} style={styles.retryBtn}>
+            <Text style={styles.retryText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={pairs}
+          keyExtractor={(_, i) => String(i)}
+          contentContainerStyle={styles.scrollContent}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No se encontraron resultados</Text>
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <ActivityIndicator color={Brand.primary} style={{ marginVertical: 16 }} />
+            ) : null
+          }
+          renderItem={({ item: pair }) => (
+            <View style={styles.grid}>
+              {pair.map(local => <LocalCard key={local.id} local={local} />)}
+              {pair.length === 1 && <View style={styles.col} />}
+            </View>
+          )}
+        />
+      )}
     </View>
   );
 }
@@ -169,7 +250,6 @@ export default function HomeListado() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.gray100 },
 
-  // Barra filtros
   filterBar: { backgroundColor: '#fff', flexGrow: 0 },
   filterBarContent: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
   filterSep: { width: 1, height: 20, backgroundColor: Brand.gray200, marginHorizontal: 4 },
@@ -178,21 +258,16 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 12, fontWeight: '500', color: Brand.gray600 },
   pillTextActive: { color: '#fff' },
 
-  // Scroll principal
   scrollContent: { padding: 8, paddingBottom: 24 },
-
-  // Grid 2 columnas
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  grid: { flexDirection: 'row' },
   col: { width: '50%', padding: 5 },
 
-  // Card
   card: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: Brand.gray200, overflow: 'hidden' },
 
-  // Imagen
-  imgWrapper: { backgroundColor: '#F9FAFB', height: 90, justifyContent: 'center', alignItems: 'center', padding: 15 },
-  img: { width: '100%', height: '100%', objectFit: 'contain' },
+  imgWrapper: { backgroundColor: '#F9FAFB', height: 100, justifyContent: 'center', alignItems: 'center', padding: 12 },
+  img: { width: '100%', height: '100%' },
+  imgPlaceholder: { backgroundColor: Brand.gray200, borderRadius: 8 },
 
-  // Badge estado
   badge: { position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 3 },
   badgeOpen: { backgroundColor: '#D1FAE5' },
   badgeClosed: { backgroundColor: '#F3F4F6' },
@@ -200,23 +275,20 @@ const styles = StyleSheet.create({
   badgeTextOpen: { color: '#065F46' },
   badgeTextClosed: { color: '#6B7280' },
 
-  // Info
-  info: { padding: 10, gap: 6 },
-  nombreRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  logoCircle: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: Brand.gray200, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
-  logoImg: { width: '100%', height: '100%', objectFit: 'contain' },
-  nombre: { flex: 1, fontSize: 12, fontWeight: '700', color: Brand.black },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  info: { padding: 10, gap: 4 },
+  nombre: { fontSize: 13, fontWeight: '700', color: Brand.black },
+  descripcion: { fontSize: 11, color: Brand.gray400, lineHeight: 15 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   ratingText: { fontSize: 11, color: Brand.gray400 },
 
-  // Skeleton
   skeletonCard: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: Brand.gray200, overflow: 'hidden' },
-  skeletonImg: { height: 90, backgroundColor: Brand.gray200 },
+  skeletonImg: { height: 100, backgroundColor: Brand.gray200 },
   skeletonBody: { padding: 10, gap: 8 },
   skeletonLine: { height: 12, borderRadius: 6, backgroundColor: Brand.gray200, width: '80%' },
 
-  // Estados
-  errorBanner: { margin: 12, backgroundColor: '#FEF2F2', borderRadius: 10, padding: 14 },
-  errorText: { color: '#DC2626', fontSize: 13, fontWeight: '500' },
+  errorBanner: { margin: 16, backgroundColor: '#FEF2F2', borderRadius: 10, padding: 16, alignItems: 'center', gap: 10 },
+  errorText: { color: '#DC2626', fontSize: 13, fontWeight: '500', textAlign: 'center' },
+  retryBtn: { backgroundColor: '#DC2626', borderRadius: 8, paddingHorizontal: 20, paddingVertical: 8 },
+  retryText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   emptyText: { textAlign: 'center', marginTop: 40, color: Brand.gray400, fontSize: 14 },
 });
