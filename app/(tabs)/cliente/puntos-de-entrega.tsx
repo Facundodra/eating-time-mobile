@@ -16,7 +16,7 @@ import {
 import { Brand } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import type { PuntoDeEntrega } from '@/lib/cliente/types';
-import { clienteService } from '@/services/cliente/cliente-service';
+import { puntoEntregaService } from '@/services/cliente/cliente-service';
 
 type FormValues = {
   localidad: string;
@@ -44,7 +44,7 @@ export default function PuntosDeEntregaScreen() {
     setListLoading(true);
     setListError(null);
     try {
-      const data = await clienteService.getPuntosEntrega(user.roleId);
+      const data = await puntoEntregaService.getPuntosEntrega(user.roleId);
       setPuntos(data);
     } catch (e) {
       setListError(e instanceof Error ? e.message : 'Error al cargar');
@@ -60,7 +60,7 @@ export default function PuntosDeEntregaScreen() {
     setFormError(null);
     setFormLoading(true);
     try {
-      await clienteService.addPuntoEntrega(user.roleId, {
+      await puntoEntregaService.addPuntoEntrega(user.roleId, {
         localidad: data.localidad,
         calle: data.calle,
         numero: data.numero,

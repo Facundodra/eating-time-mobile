@@ -25,3 +25,13 @@ export type PuntoEntregaCredentials = {
   nroApto?: string;
   indicaciones?: string;
 };
+
+export type LocalList = {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  direccion: string;
+  url_foto: string;
+  califiacion: number;
+  estado_servicio: boolean;
+}
