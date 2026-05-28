@@ -29,9 +29,9 @@ async function addPuntoEntrega(clienteId: string, credentials: PuntoEntregaCrede
 export const puntoEntregaService = { getCliente, getPuntosEntrega, addPuntoEntrega };
 
 export async function getLocales(params?: LocalesParams): Promise<Page<LocalDto>> {
-  //const { data } = await apiClient.get<Page<LocalDto>>('/api/locales', { params });
-  //return data;
-
+  const { data } = await apiClient.get<Page<LocalDto>>('/api/locales', { params });
+  return data;
+/*
   const mock: LocalDto[] = [
     { id: 1, usuarioId: 1, nombre: "McDonald's", descripcion: "Hamburguesas, papas fritas y menús para toda la familia", direccion: "Av. 18 de Julio 1360, Centro, Montevideo", urlFoto: null, calificacion: 3.8, estadoServicio: true, email: '', telefono: '', creacion: '', bloqueo: null, eliminacion: null },
     { id: 2, usuarioId: 2, nombre: "Burger King", descripcion: "Whopper a la parrilla y King deals exclusivos", direccion: "Punta Carretas Shopping, Montevideo", urlFoto: null, calificacion: 3.9, estadoServicio: true, email: '', telefono: '', creacion: '', bloqueo: null, eliminacion: null },
@@ -100,5 +100,5 @@ export async function getLocales(params?: LocalesParams): Promise<Page<LocalDto>
     last: start + size >= mock.length,
     empty: content.length === 0,
   };
-  
+*/
 }
