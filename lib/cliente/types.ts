@@ -7,7 +7,7 @@ export type ClienteDto = {
   fotoPerfil?: string;
 };
 
-export type PuntoDeEntrega = {
+export type DeliveryPoint = {
   id: number;
   localidad: string;
   calle: string;
@@ -18,48 +18,41 @@ export type PuntoDeEntrega = {
   clienteId: number;
 };
 
-export type PuntoEntregaCredentials = {
-  localidad: string;
-  calle: string;
-  numero: string;
-  nroApto?: string;
-  indicaciones?: string;
+export type DeliveryPointCredentials = {
+  loc: string;
+  street: string;
+  number: string;
+  apto?: string;
+  indications?: string;
 };
 
-export type LocalDto = {
+export type DishStatus = "available" | "unavailable";
+
+export type ClientDish = {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl: string | null;
+  status: DishStatus;
+  createdAt: string;
+  localId: number;
+  categories: number[];
+}
+
+export type RestaurantList = {
   id: number;
-  usuarioId: number;
-  nombre: string;
-  email: string;
-  telefono: string;
-  creacion: string;
-  bloqueo: string | null;
-  eliminacion: string | null;
-  direccion: string;
-  urlFoto: string | null;
-  descripcion: string;
-  calificacion: number;
-  estadoServicio: boolean;
-};
+  name: string;
+  url_photo: string;
+  stars: number;
+  state: boolean;
+}
 
-export type LocalesParams = {
-  nombre?: string;
-  calificacionMin?: number;
-  calificacionMax?: number;
-  servicio?: 'ACTIVO' | 'INACTIVO';
-  ordenarPor?: 'calificacion' | 'nombre';
-  direccion?: 'asc' | 'desc';
-  page?: number;
-  size?: number;
-};
-
-export type Page<T> = {
-  content: T[];
-  totalElements: number;
-  totalPages: number;
-  number: number;
-  size: number;
-  first: boolean;
-  last: boolean;
-  empty: boolean;
-};
+export type Restaurant ={
+  id: number;
+  name: string;
+  url_photo: string;
+  stars: number;
+  state: boolean;
+  address: string | null;
+  description: string | null;
+}

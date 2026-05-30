@@ -15,21 +15,21 @@ import {
 
 import { Brand } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
-import type { PuntoDeEntrega } from '@/lib/cliente/types';
-import { puntoEntregaService } from '@/services/cliente/cliente-service';
+import type { DeliveryPoint } from '@/lib/cliente/types';
+import { deliveryPointService } from '@/services/cliente/cliente-service';
 
 type FormValues = {
-  localidad: string;
-  calle: string;
-  numero: string;
-  nroApto: string;
-  indicaciones: string;
+  loc: string;
+  street: string;
+  number: string;
+  apto: string;
+  indications: string;
 };
 
-export default function PuntosDeEntregaScreen() {
+export default function DeliveryPointsScreen() {
   const { user } = useAuth();
 
-  const [puntos, setPuntos] = useState<PuntoDeEntrega[]>([]);
+  const [deliveryPoints, setDeliveryPoints] = useState<DeliveryPoint[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -39,13 +39,13 @@ export default function PuntosDeEntregaScreen() {
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({ mode: 'onBlur' });
 
-  const loadPuntos = useCallback(async () => {
+  const loadDeliveryPoints = useCallback(async () => {
     if (!user) return;
     setListLoading(true);
     setListError(null);
     try {
-      const data = await puntoEntregaService.getPuntosEntrega(user.roleId);
-      setPuntos(data);
+      const data = await deliveryPointService.getDeliveryPoints(user.roleId);
+      setDeliveryPoints(data);
     } catch (e) {
       setListError(e instanceof Error ? e.message : 'Error al cargar');
     } finally {
@@ -53,23 +53,23 @@ export default function PuntosDeEntregaScreen() {
     }
   }, [user]);
 
-  useEffect(() => { loadPuntos(); }, [loadPuntos]);
+  useEffect(() => { loadDeliveryPoints(); }, [loadDeliveryPoints]);
 
   async function onSubmit(data: FormValues) {
     if (!user) return;
     setFormError(null);
     setFormLoading(true);
     try {
-      await puntoEntregaService.addPuntoEntrega(user.roleId, {
-        localidad: data.localidad,
-        calle: data.calle,
-        numero: data.numero,
-        nroApto: data.nroApto || undefined,
-        indicaciones: data.indicaciones || undefined,
+      await deliveryPointService.addDeliveryPoint(user.roleId, {
+        loc: data.loc,
+        street: data.street,
+        number: data.number,
+        apto: data.apto || undefined,
+        indications: data.indications || undefined,
       });
       setFormSuccess(true);
       reset();
-      await loadPuntos();
+      await loadDeliveryPoints();
       setTimeout(() => setFormSuccess(false), 3000);
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Error al guardar');
@@ -101,23 +101,23 @@ export default function PuntosDeEntregaScreen() {
             <View style={styles.errorBanner}>
               <Text style={styles.errorBannerText}>{listError}</Text>
             </View>
-          ) : puntos.length === 0 ? (
+          ) : deliveryPoints.length === 0 ? (
             <Text style={styles.emptyText}>No tenés puntos de entrega guardados todavía.</Text>
           ) : (
             <View style={styles.list}>
-              {puntos.map((punto) => (
-                <View key={punto.id} style={styles.puntoItem}>
+              {deliveryPoints.map((deliveryPoint) => (
+                <View key={deliveryPoint.id} style={styles.deliveryPointItem}>
                   <View style={styles.pinWrapper}>
                     <IconMapPin size={18} color={Brand.primary} strokeWidth={1.5} />
                   </View>
-                  <View style={styles.puntoInfo}>
-                    <Text style={styles.puntoAddress}>
-                      {punto.calle} {punto.numero}
-                      {punto.nroApto ? `, Apto ${punto.nroApto}` : ''}
+                  <View style={styles.deliveryPointInfo}>
+                    <Text style={styles.deliveryPointAddress}>
+                      {deliveryPoint.calle} {deliveryPoint.numero}
+                      {deliveryPoint.nroApto ? `, Apto ${deliveryPoint.nroApto}` : ''}
                     </Text>
-                    <Text style={styles.puntoLocalidad}>{punto.localidad}</Text>
-                    {punto.indicaciones ? (
-                      <Text style={styles.puntoIndicaciones}>{punto.indicaciones}</Text>
+                    <Text style={styles.deliveryPointCity}>{deliveryPoint.localidad}</Text>
+                    {deliveryPoint.indicaciones ? (
+                      <Text style={styles.deliveryPointIndications}>{deliveryPoint.indicaciones}</Text>
                     ) : null}
                   </View>
                 </View>
@@ -146,11 +146,11 @@ export default function PuntosDeEntregaScreen() {
                 <Text style={styles.label}>Localidad <Text style={styles.required}>*</Text></Text>
                 <Controller
                   control={control}
-                  name="localidad"
+                  name="loc"
                   rules={{ required: 'La localidad es obligatoria' }}
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
-                      style={[styles.input, errors.localidad && styles.inputError]}
+                      style={[styles.input, errors.loc && styles.inputError]}
                       placeholder="Ej: Montevideo, Pando"
                       placeholderTextColor={Brand.gray400}
                       onChangeText={onChange}
@@ -159,7 +159,7 @@ export default function PuntosDeEntregaScreen() {
                     />
                   )}
                 />
-                {errors.localidad && <Text style={styles.errorMsg}>{errors.localidad.message}</Text>}
+                {errors.loc && <Text style={styles.errorMsg}>{errors.loc.message}</Text>}
               </View>
 
               <View style={styles.row}>
@@ -167,11 +167,11 @@ export default function PuntosDeEntregaScreen() {
                   <Text style={styles.label}>Calle <Text style={styles.required}>*</Text></Text>
                   <Controller
                     control={control}
-                    name="calle"
+                    name="street"
                     rules={{ required: 'La calle es obligatoria' }}
                     render={({ field: { onChange, onBlur, value } }) => (
                       <TextInput
-                        style={[styles.input, errors.calle && styles.inputError]}
+                        style={[styles.input, errors.street && styles.inputError]}
                         placeholder="18 de Julio"
                         placeholderTextColor={Brand.gray400}
                         onChangeText={onChange}
@@ -180,17 +180,17 @@ export default function PuntosDeEntregaScreen() {
                       />
                     )}
                   />
-                  {errors.calle && <Text style={styles.errorMsg}>{errors.calle.message}</Text>}
+                  {errors.street && <Text style={styles.errorMsg}>{errors.street.message}</Text>}
                 </View>
                 <View style={[styles.field, styles.fieldNumero]}>
                   <Text style={styles.label}>Número <Text style={styles.required}>*</Text></Text>
                   <Controller
                     control={control}
-                    name="numero"
+                    name="number"
                     rules={{ required: 'Requerido' }}
                     render={({ field: { onChange, onBlur, value } }) => (
                       <TextInput
-                        style={[styles.input, errors.numero && styles.inputError]}
+                        style={[styles.input, errors.number && styles.inputError]}
                         placeholder="2718"
                         placeholderTextColor={Brand.gray400}
                         keyboardType="numeric"
@@ -200,7 +200,7 @@ export default function PuntosDeEntregaScreen() {
                       />
                     )}
                   />
-                  {errors.numero && <Text style={styles.errorMsg}>{errors.numero.message}</Text>}
+                  {errors.number && <Text style={styles.errorMsg}>{errors.number.message}</Text>}
                 </View>
               </View>
 
@@ -208,7 +208,7 @@ export default function PuntosDeEntregaScreen() {
                 <Text style={styles.label}>Nro. de apartamento <Text style={styles.optional}>(opcional)</Text></Text>
                 <Controller
                   control={control}
-                  name="nroApto"
+                  name="apto"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
                       style={styles.input}
@@ -227,7 +227,7 @@ export default function PuntosDeEntregaScreen() {
                 <Text style={styles.label}>Indicaciones <Text style={styles.optional}>(opcional)</Text></Text>
                 <Controller
                   control={control}
-                  name="indicaciones"
+                  name="indications"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
                       style={[styles.input, styles.textarea]}
@@ -247,8 +247,10 @@ export default function PuntosDeEntregaScreen() {
               {formError && (
                 <View style={styles.errorBanner}>
                   <Text style={styles.errorBannerText}>
-                    {formError == 'Conflict' ? 'Ya existe un punto de entrega con ese número de puerta registrado para este cliente' : formError}
-                    </Text>
+                    {formError === 'Conflict'
+                      ? 'Ya existe un punto de entrega con ese número de puerta registrado para este cliente'
+                      : formError}
+                  </Text>
                 </View>
               )}
 
@@ -293,12 +295,12 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 13, color: Brand.gray400 },
 
   list: { gap: 10 },
-  puntoItem: { flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: Brand.gray200, borderRadius: 12, padding: 12 },
+  deliveryPointItem: { flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: Brand.gray200, borderRadius: 12, padding: 12 },
   pinWrapper: { marginRight: 10, marginTop: 1 },
-  puntoInfo: { flex: 1 },
-  puntoAddress: { fontSize: 13, fontWeight: '700', color: Brand.black },
-  puntoLocalidad: { fontSize: 12, color: Brand.gray400, marginTop: 2 },
-  puntoIndicaciones: { fontSize: 12, color: Brand.gray600, marginTop: 4 },
+  deliveryPointInfo: { flex: 1 },
+  deliveryPointAddress: { fontSize: 13, fontWeight: '700', color: Brand.black },
+  deliveryPointCity: { fontSize: 12, color: Brand.gray400, marginTop: 2 },
+  deliveryPointIndications: { fontSize: 12, color: Brand.gray600, marginTop: 4 },
 
   form: { gap: 4 },
   field: { marginBottom: 12 },
