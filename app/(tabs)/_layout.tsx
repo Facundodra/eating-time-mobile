@@ -52,6 +52,10 @@ export default function TabLayout() {
           options={{ href: null }}
         />
         <Tabs.Screen
+          name="plato/[id]"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
           name="cliente/puntos-de-entrega"
           options={{ href: null }}
         />

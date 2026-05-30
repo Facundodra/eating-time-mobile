@@ -1,17 +1,8 @@
-import { useLocalSearchParams } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams } from "expo-router";
 
-export default function LocalDetailScreen() {
+import RestaurantDetailScreen from "@/ui/restaurant-detail";
+
+export default function LocalDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Local #{id}</Text>
-    </View>
-  );
+  return <RestaurantDetailScreen id={id} />;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6' },
-  text: { fontSize: 18, fontWeight: '600', color: '#374151' },
-});
