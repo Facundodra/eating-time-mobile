@@ -17,13 +17,13 @@ export default function TabLayout() {
         screenOptions={{
           tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
           headerShown: false,
-          tabBarButton: HapticTab,
         }}
       >
         <Tabs.Screen
           name="index"
           options={{
             title: 'Inicio',
+            tabBarButton: HapticTab,
             tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
           }}
         />
@@ -31,6 +31,7 @@ export default function TabLayout() {
           name="mis-pedidos"
           options={{
             title: 'Mis pedidos',
+            tabBarButton: HapticTab,
             tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
           }}
         />
@@ -38,8 +39,25 @@ export default function TabLayout() {
           name="mi-cuenta"
           options={{
             title: 'Mi cuenta',
+            tabBarButton: HapticTab,
             tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
           }}
+        />
+        <Tabs.Screen
+          name="carrito"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="local/[id]"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="plato/[id]"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="cliente/puntos-de-entrega"
+          options={{ href: null }}
         />
       </Tabs>
     </View>
