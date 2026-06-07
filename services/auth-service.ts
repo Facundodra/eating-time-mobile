@@ -142,3 +142,58 @@ function mapLoginError(error: AxiosError<ErrorResponse>) {
 }
 
 export const authService = { login, register, logout };
+
+
+
+// Reecuperar contrasena 
+export async function resetPassword(email: string): Promise<void> {
+  await apiClient.post("/api/auth/recuperar-password", { email });
+}
+
+export class PasswordResetError extends Error {
+  constructor(
+    message: string,
+    public readonly code: "invalid" | "expired" | "validation",
+    public readonly status?: number,
+  ) {
+    super(message);
+    this.name = "PasswordResetError";
+  }
+}
+
+export async function confirmPasswordReset(
+  token: string,
+  nuevaPassword: string,
+): Promise<void> {
+  try {
+    await apiClient.post("/api/auth/restablecer-password", {
+      token,
+      nuevaPassword,
+    });
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      if (status === 404) {
+        throw new PasswordResetError("El enlace no es válido.", "invalid", 404);
+      }
+      if (status === 410) {
+        throw new PasswordResetError(
+          "El enlace expiró o ya fue utilizado. Solicitá uno nuevo.",
+          "expired",
+          410,
+        );
+      }
+      if (status === 400) {
+        const msg =
+          error.response?.data?.nuevaPassword ??
+          error.response?.data?.message ??
+          "La contraseña no es válida.";
+        throw new PasswordResetError(msg, "validation", 400);
+      }
+    }
+    throw new PasswordResetError(
+      "No se pudo restablecer la contraseña. Intentalo nuevamente.",
+      "invalid",
+    );
+  }
+}

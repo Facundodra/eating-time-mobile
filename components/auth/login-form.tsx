@@ -125,11 +125,8 @@ export default function LoginForm() {
         {errors.password && <Text style={styles.errorMsg}>{errors.password.message}</Text>}
       </View>
 
-      <TouchableOpacity
-        style={styles.forgotButton}
-        onPress={() => setApiError('La recuperación de contraseña todavía no está disponible.')}
-      >
-        <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+      <TouchableOpacity onPress={() => router.push('/auth/forgot-password')}>
+          <Text style={styles.forgotText}>¿Olvidaste tu contraseña? </Text>
       </TouchableOpacity>
 
       {apiError && (
@@ -210,6 +207,8 @@ const styles = StyleSheet.create({
     color: Brand.primary,
     fontSize: 13,
     fontWeight: '600',
+    marginBottom: 30,
+    textAlign: 'center',
   },
   errorBanner: {
     backgroundColor: '#FEF2F2',
