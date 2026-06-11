@@ -24,6 +24,9 @@ export default function MiCuentaScreen() {
       <TouchableOpacity onPress={() => router.push("/cliente/puntos-de-entrega")}>
           <Text>Puntos de entrega</Text>
       </TouchableOpacity>
+      <TouchableOpacity onPress={() => router.push("/cliente/cambiar-password")}>
+          <Text>Cambiar contraseña</Text>
+      </TouchableOpacity>
       <TouchableOpacity
         style={styles.logoutButton}
         onPress={handleLogout}
