@@ -14,7 +14,7 @@ import { apiClient } from '../api-client';
 import { getSession } from "@/lib/auth/session";
 
 async function getCliente(id: string): Promise<ClienteDto> {
-  const { data } = await apiClient.get<ClienteDto>(`/clientes/${id}`);
+  const { data } = await apiClient.get<ClienteDto>(`/api/clientes/${id}`);
   return data;
 }
 
