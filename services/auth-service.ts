@@ -241,3 +241,49 @@ export async function changePassword(
     );
   }
 }
+
+
+
+// Sesión actual
+export type SessionInfo = {
+  tipoUsuario: 'CLIENTE';
+  idUsuario: number;
+  idTipoUsuario: number;
+  nombre: string;
+  correo: string;
+  urlFoto: string | null;
+};
+
+export async function getCurrentSession(): Promise<SessionInfo> {
+  const { data } = await apiClient.get<SessionInfo>('/api/auth/me');
+  return data;
+}
+
+// Editar datos usuario
+export async function editUserData(nombre?: string, telefono?: string, fotoUri?: string | null): Promise<void> {
+  const body = new FormData();
+  body.append("nombre", nombre ?? "");
+  body.append("telefono", telefono ?? "");
+
+  if (fotoUri) {
+    const ext = fotoUri.split('.').pop()?.toLowerCase() ?? 'jpg';
+    const type = ext === 'png' ? 'image/png' : 'image/jpeg';
+    body.append("foto", { uri: fotoUri, type, name: `profile.${ext}` } as unknown as Blob);
+  }
+
+  try {
+    await apiClient.patch("/api/local/editar", body, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      if (status === 401) {
+        throw new Error("Tu sesión expiró." );
+      }
+    }
+    throw new Error(
+      "No se pudo editar el usuario. Intentalo nuevamente."
+    );
+  }
+}

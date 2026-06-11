@@ -21,6 +21,9 @@ export default function MiCuentaScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>Mi cuenta</Text>
+      <TouchableOpacity onPress={() => router.push("/cliente/editar-perfil")}>
+          <Text>Editar perfil</Text>
+      </TouchableOpacity>
       <TouchableOpacity onPress={() => router.push("/cliente/puntos-de-entrega")}>
           <Text>Puntos de entrega</Text>
       </TouchableOpacity>

@@ -67,6 +67,10 @@ export default function TabLayout() {
           name="cliente/cambiar-password"
           options={{ href: null }}
         />
+        <Tabs.Screen
+          name="cliente/editar-perfil"
+          options={{ href: null }}
+        />
       </Tabs>
     </View>
   );
