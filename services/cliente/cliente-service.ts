@@ -7,6 +7,7 @@ import type {
   ClientDish,
   DeliveryPoint,
   DeliveryPointCredentials,
+  LocalRating
 } from '@/lib/cliente/types';
 
 import { apiClient } from '../api-client';
@@ -245,5 +246,21 @@ export async function getDish(id: string): Promise<ClientDish> {
             throw new Error(message);
         }
         throw new Error("No se pudo cargar el plato.");
+    }
+}
+
+
+// ── Calificaciones ─────────────────────────────────────────────────────────────
+export async function getLocalRatings(restaurantId: number): Promise<LocalRating[]> {
+    try {
+        const response = await apiClient.get<LocalRating[]>(`/api/locales/${restaurantId}/comentarios`);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const data = error.response?.data;
+            const message = data?.error ?? data?.message ?? `Error al obtener comentarios (${error.response?.status})`;
+            throw new Error(message);
+        }
+        throw new Error("No se pudo cargar los comentarios.");
     }
 }

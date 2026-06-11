@@ -56,3 +56,13 @@ export type Restaurant ={
   address: string | null;
   description: string | null;
 }
+
+// Calificacion de local 
+export type LocalRating = {
+  id: number;
+  calificacion: number;
+  comentario: string | null;
+  creacion: string;
+  pedidoId: number;
+  nombreCliente: string;
+}

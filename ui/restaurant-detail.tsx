@@ -102,6 +102,11 @@ export default function RestaurantDetailScreen({ id }: { id: string }) {
                   <StarIcon size={14} color="#FB923C" />
                   <Text style={styles.starsText}>{restaurant.stars}</Text>
                 </View>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: "/(tabs)/local/[id]/comentarios", params: { id } })}
+                >
+                  <Text style={styles.ratingsLink}>Ver comentarios</Text>
+                </TouchableOpacity>
               </View>
 
               {restaurant.description ? (
@@ -154,6 +159,7 @@ const styles = StyleSheet.create({
   restaurantName: { fontSize: 16, fontWeight: "800", color: Brand.black, flexShrink: 1 },
   starsRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   starsText: { fontSize: 13, color: "#FB923C", fontWeight: "600" },
+  ratingsLink: { fontSize: 12, color: Brand.gray600 },
   description: { fontSize: 13, color: Brand.gray600, lineHeight: 18 },
   addressRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
   addressText: { fontSize: 12, color: Brand.gray400, flexShrink: 1 },

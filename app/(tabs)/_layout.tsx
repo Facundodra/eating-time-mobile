@@ -48,7 +48,11 @@ export default function TabLayout() {
           options={{ href: null }}
         />
         <Tabs.Screen
-          name="local/[id]"
+          name="local/[id]/index"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="local/[id]/comentarios"
           options={{ href: null }}
         />
         <Tabs.Screen
