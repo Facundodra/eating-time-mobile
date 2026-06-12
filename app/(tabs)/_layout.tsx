@@ -5,14 +5,16 @@ import Header from '@/components/shared/header';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
+import { useCartCount } from '@/hooks/use-cart-count';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const cartCount = useCartCount();
 
   return (
     <View style={{ flex: 1 }}>
-      <Header />
+      <Header cartCount={cartCount} />
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
@@ -52,7 +54,15 @@ export default function TabLayout() {
           options={{ href: null }}
         />
         <Tabs.Screen
+          name="local/[id]/cart"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
           name="local/[id]/comentarios"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="pedidos/resultado"
           options={{ href: null }}
         />
         <Tabs.Screen

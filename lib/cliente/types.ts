@@ -57,6 +57,58 @@ export type Restaurant ={
   description: string | null;
 }
 
+export type OrderStatus = 'EN_CARRITO' | 'ETAPA_DE_PAGO' | 'PENDIENTE_CONFIRMACION_LOCAL';
+
+export type OrderRequest =
+  | { puntoDeEntregaId: number }
+  | {
+      localidad: string;
+      calle: string;
+      numero: string;
+      nroApto?: string;
+      indicaciones?: string;
+      guardarEnCuenta?: boolean;
+    };
+
+export type PaymentResponse = {
+  linkPago: string;
+};
+
+export type PaymentStatus = 'approved' | 'failure' | 'pending';
+
+export type CartItem = {
+  id: number;
+  pedidoId: number;
+  platoId: number;
+  nombre?: string;
+  descuentoId: number | null;
+  cantidad: number;
+  costoUnitario: number;
+  descuentoAplicado: number;
+  total: number;
+  creacion: string;
+  eliminacion: string | null;
+};
+
+export type Cart = {
+  id: number;
+  restaurantId: number;
+  clienteId: number;
+  cuponId: number | null;
+  estado: OrderStatus;
+  total: number;
+  descuento: number | null;
+  tiempoEstimado: number | null;
+  urlFactura: string | null;
+  comentario: string | null;
+  direccion: string | null;
+  indicaciones: string | null;
+  motivoRechazo: string | null;
+  creacion: string;
+  eliminacion: string | null;
+  items: CartItem[];
+};
+
 // Calificacion de local 
 export type LocalRating = {
   id: number;

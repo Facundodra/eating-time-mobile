@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -11,11 +11,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { TagIcon } from "react-native-heroicons/outline";
+import { MinusIcon, PlusIcon, TagIcon } from "react-native-heroicons/outline";
 
 import { Brand } from "@/constants/theme";
-import { getDishes, type DishFilter } from "@/services/cliente/cliente-service";
-import type { ClientDish } from "@/lib/cliente/types";
+import { getActiveCartItems } from "@/lib/cliente/cart-utils";
+import type { Cart, ClientDish } from "@/lib/cliente/types";
+import { getDishes, updateCartItem, type DishFilter } from "@/services/cliente/cliente-service";
 
 const PAGE_SIZE = 20;
 
@@ -46,7 +47,13 @@ function DishSkeleton() {
   );
 }
 
-export default function DishesList({ idLocal }: { idLocal?: number }) {
+type Props = {
+  idLocal?: number;
+  cart?: Cart | null;
+  onCartUpdate?: (cart: Cart | null) => void;
+};
+
+export default function DishesList({ idLocal, cart, onCartUpdate }: Props) {
   const [dishes, setDishes] = useState<ClientDish[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -54,6 +61,8 @@ export default function DishesList({ idLocal }: { idLocal?: number }) {
   const [filters, setFilters] = useState<Filters>({});
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [updatingDishId, setUpdatingDishId] = useState<number | null>(null);
+  const cartUpdateInFlight = useRef(false);
 
   const [precioMin, setPrecioMin] = useState("");
   const [precioMax, setPrecioMax] = useState("");
@@ -108,6 +117,29 @@ export default function DishesList({ idLocal }: { idLocal?: number }) {
   const ordenValue: OrdenValue = filters.orden
     ? `${filters.orden}-${filters.sentido ?? "asc"}`
     : "";
+
+  function getCartQty(dishId: string): number {
+    if (!cart) return 0;
+    const item = getActiveCartItems(cart).find((i) => i.platoId === Number(dishId));
+    return item?.cantidad ?? 0;
+  }
+
+  async function handleCartUpdate(dishId: string, delta: number) {
+    if (!idLocal || !onCartUpdate) return;
+    if (cartUpdateInFlight.current) return;
+    cartUpdateInFlight.current = true;
+    setUpdatingDishId(Number(dishId));
+    try {
+      const updated = await updateCartItem(idLocal, Number(dishId), delta);
+      const hasActiveItems = getActiveCartItems(updated).length > 0;
+      onCartUpdate(hasActiveItems ? updated : null);
+    } catch (err) {
+      console.warn('[carrito] error en updateCartItem:', err);
+    } finally {
+      cartUpdateInFlight.current = false;
+      setUpdatingDishId(null);
+    }
+  }
 
   return (
     <View style={styles.root}>
@@ -185,33 +217,83 @@ export default function DishesList({ idLocal }: { idLocal?: number }) {
           keyExtractor={(item) => item.id.toString()}
           numColumns={2}
           contentContainerStyle={styles.scrollContent}
-          renderItem={({ item }) => (
-            <View style={styles.col}>
-              <TouchableOpacity
-                style={styles.card}
-                activeOpacity={0.85}
-                onPress={() => router.push({ pathname: "/(tabs)/plato/[id]", params: { id: item.id } })}
-              >
-                <View style={styles.imgWrapper}>
-                  {item.imageUrl ? (
-                    <Image
-                      source={{ uri: item.imageUrl }}
-                      style={styles.img}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <Text style={styles.imgPlaceholderText}>
-                      {item.name.charAt(0).toUpperCase()}
-                    </Text>
+          renderItem={({ item }) => {
+            const qty = getCartQty(item.id);
+            const isUpdating = updatingDishId === Number(item.id);
+            const showCart = idLocal != null && onCartUpdate != null;
+
+            return (
+              <View style={styles.col}>
+                <View style={styles.card}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => router.push({ pathname: "/(tabs)/plato/[id]", params: { id: item.id } })}
+                  >
+                    <View style={styles.imgWrapper}>
+                      {item.imageUrl ? (
+                        <Image
+                          source={{ uri: item.imageUrl }}
+                          style={styles.img}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Text style={styles.imgPlaceholderText}>
+                          {item.name.charAt(0).toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.info}>
+                      <Text style={styles.nombre} numberOfLines={2}>{item.name}</Text>
+                      <Text style={styles.precio}>${item.price}</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {showCart && (
+                    <View style={styles.cartControls}>
+                      {qty === 0 ? (
+                        <TouchableOpacity
+                          disabled={isUpdating}
+                          style={[styles.addBtn, isUpdating && styles.addBtnDisabled]}
+                          onPress={() => handleCartUpdate(item.id, 1)}
+                        >
+                          {isUpdating ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <>
+                              <PlusIcon size={16} color="#fff" />
+                              <Text style={styles.addBtnText}>Agregar</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.qtyRow}>
+                          <TouchableOpacity
+                            disabled={isUpdating}
+                            onPress={() => handleCartUpdate(item.id, -1)}
+                            style={styles.qtyBtn}
+                          >
+                            <MinusIcon size={14} color={Brand.primary} />
+                          </TouchableOpacity>
+                          {isUpdating ? (
+                            <ActivityIndicator size="small" color={Brand.primary} />
+                          ) : (
+                            <Text style={styles.qtyText}>{qty}</Text>
+                          )}
+                          <TouchableOpacity
+                            disabled={isUpdating}
+                            onPress={() => handleCartUpdate(item.id, 1)}
+                            style={styles.qtyBtn}
+                          >
+                            <PlusIcon size={14} color={Brand.primary} />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
                   )}
                 </View>
-                <View style={styles.info}>
-                  <Text style={styles.nombre} numberOfLines={2}>{item.name}</Text>
-                  <Text style={styles.precio}>${item.price}</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          )}
+              </View>
+            );
+          }}
           ListFooterComponent={
             hasMore ? (
               <View style={styles.loadMoreWrapper}>
@@ -265,6 +347,31 @@ const styles = StyleSheet.create({
   info: { padding: 10, gap: 4 },
   nombre: { fontSize: 13, fontWeight: "700", color: Brand.black },
   precio: { fontSize: 14, fontWeight: "700", color: Brand.primary },
+
+  cartControls: { paddingHorizontal: 10, paddingBottom: 10 },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: Brand.primary,
+    borderRadius: 8,
+    paddingVertical: 8,
+  },
+  addBtnDisabled: { opacity: 0.6 },
+  addBtnText: { color: "#fff", fontSize: 12, fontWeight: "600" },
+  qtyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  qtyBtn: { padding: 4 },
+  qtyText: { fontSize: 14, fontWeight: "700", color: Brand.primary, minWidth: 20, textAlign: "center" },
 
   skeletonCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: Brand.gray200, overflow: "hidden" },
   skeletonImg: { height: 130, backgroundColor: Brand.gray200 },

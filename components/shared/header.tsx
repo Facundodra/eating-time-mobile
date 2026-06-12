@@ -32,7 +32,7 @@ export default function Header({ cartCount = 0 }: Props) {
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.cartButton}
-          onPress={() => router.push('/carrito')}
+          onPress={() => router.push('/(tabs)/carrito')}
           activeOpacity={0.8}
         >
           <IconShoppingCart size={26} color={Brand.gray800} strokeWidth={1.5} />

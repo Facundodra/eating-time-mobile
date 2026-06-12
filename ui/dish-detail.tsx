@@ -1,6 +1,7 @@
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
@@ -10,12 +11,15 @@ import {
 } from "react-native";
 import {
   ChevronLeftIcon,
+  MinusIcon,
+  PlusIcon,
   ShoppingCartIcon,
 } from "react-native-heroicons/outline";
 
 import { Brand } from "@/constants/theme";
-import type { ClientDish } from "@/lib/cliente/types";
-import { getDish, getRestaurantName } from "@/services/cliente/cliente-service";
+import { getActiveCartItems } from "@/lib/cliente/cart-utils";
+import type { Cart, ClientDish } from "@/lib/cliente/types";
+import { getCart, getDish, getRestaurantName, updateCartItem } from "@/services/cliente/cliente-service";
 
 
 function DishDetailSkeleton() {
@@ -37,19 +41,43 @@ function DishDetailSkeleton() {
 export default function DishDetailScreen({ id }: { id: string }) {
   const [dish, setDish] = useState<ClientDish | null>(null);
   const [localName, setLocalName] = useState<string | null>(null);
+  const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const cartUpdateInFlight = useRef(false);
 
   useEffect(() => {
     getDish(id)
       .then((d) => {
         setDish(d);
+        getCart(d.localId).then(setCart).catch(() => setCart(null));
         return getRestaurantName(d.localId);
       })
       .then(setLocalName)
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar"))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const qty = dish
+    ? getActiveCartItems(cart).find((i) => i.platoId === Number(dish.id))?.cantidad ?? 0
+    : 0;
+
+  async function handleCartUpdate(delta: number) {
+    if (!dish || cartUpdateInFlight.current) return;
+    cartUpdateInFlight.current = true;
+    setIsUpdating(true);
+    try {
+      const updated = await updateCartItem(dish.localId, Number(dish.id), delta);
+      const hasActiveItems = getActiveCartItems(updated).length > 0;
+      setCart(hasActiveItems ? updated : null);
+    } catch (err) {
+      console.warn("[carrito] error en updateCartItem:", err);
+    } finally {
+      cartUpdateInFlight.current = false;
+      setIsUpdating(false);
+    }
+  }
 
   if (loading) return <DishDetailSkeleton />;
 
@@ -110,15 +138,45 @@ export default function DishDetailScreen({ id }: { id: string }) {
             <Text style={styles.localName}>{localName}</Text>
           ) : null}
 
-          {/* Botón agregar al carrito */}
-          <TouchableOpacity
-            disabled={!available}
-            style={[styles.cartBtn, !available && styles.cartBtnDisabled]}
-            activeOpacity={0.85}
-          >
-            <ShoppingCartIcon size={20} color="#fff" />
-            <Text style={styles.cartBtnText}>Agregar al carrito</Text>
-          </TouchableOpacity>
+          {qty === 0 ? (
+            <TouchableOpacity
+              disabled={!available || isUpdating}
+              style={[styles.cartBtn, (!available || isUpdating) && styles.cartBtnDisabled]}
+              activeOpacity={0.85}
+              onPress={() => handleCartUpdate(1)}
+            >
+              {isUpdating ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <ShoppingCartIcon size={20} color="#fff" />
+                  <Text style={styles.cartBtnText}>Agregar al carrito</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.qtyControl}>
+              <TouchableOpacity
+                disabled={isUpdating}
+                onPress={() => handleCartUpdate(-1)}
+                style={styles.qtyBtn}
+              >
+                <MinusIcon size={18} color={Brand.primary} />
+              </TouchableOpacity>
+              {isUpdating ? (
+                <ActivityIndicator color={Brand.primary} />
+              ) : (
+                <Text style={styles.qtyText}>{qty}</Text>
+              )}
+              <TouchableOpacity
+                disabled={isUpdating}
+                onPress={() => handleCartUpdate(1)}
+                style={styles.qtyBtn}
+              >
+                <PlusIcon size={18} color={Brand.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -155,6 +213,19 @@ const styles = StyleSheet.create({
   cartBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: Brand.primary, borderRadius: 14, paddingVertical: 14, marginTop: 20 },
   cartBtnDisabled: { opacity: 0.5 },
   cartBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
+  qtyControl: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 20,
+  },
+  qtyBtn: { padding: 8 },
+  qtyText: { fontSize: 18, fontWeight: "800", color: Brand.primary },
 
   errorBanner: { margin: 16, backgroundColor: "#FEF2F2", borderRadius: 10, padding: 16 },
   errorText: { color: "#DC2626", fontSize: 13, textAlign: "center" },
