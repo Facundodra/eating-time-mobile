@@ -117,4 +117,49 @@ export type LocalRating = {
   creacion: string;
   pedidoId: number;
   nombreCliente: string;
-}
+};
+
+export type OrderRatingValue =
+  | '1_ESTRELLA'
+  | '2_ESTRELLAS'
+  | '3_ESTRELLAS'
+  | '4_ESTRELLAS'
+  | '5_ESTRELLAS';
+
+export type OrderRating = {
+  id?: number;
+  pedidoId: number;
+  calificacion: OrderRatingValue | string;
+  comentario: string | null;
+  creacion?: string | null;
+};
+
+export type OrderHistoryStatus =
+  | 'PENDIENTE_CONFIRMACION_LOCAL'
+  | 'ACEPTADO_LOCAL'
+  | 'EN_CURSO_LOCAL'
+  | 'EN_CAMINO_LOCAL'
+  | 'FINALIZADO'
+  | 'RECHAZADO_LOCAL'
+  | 'CANCELADO_CLIENTE';
+
+export type Order = {
+  id: number;
+  restaurantId: number;
+  clienteId: number;
+  cuponId: number | null;
+  estado: OrderHistoryStatus;
+  total: number;
+  descuento: number | null;
+  tiempoEstimado: string | null;
+  urlFactura: string | null;
+  comentario: string | null;
+  direccion: string | null;
+  indicaciones: string | null;
+  motivoRechazo: string | null;
+  creacion: string;
+  eliminacion: string | null;
+  items: CartItem[];
+  calificacionLocal: OrderRating | null;
+  hasLocalRating: boolean;
+};

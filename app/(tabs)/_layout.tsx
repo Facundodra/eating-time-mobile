@@ -7,10 +7,12 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useCartCount } from '@/hooks/use-cart-count';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { usePendingRatingsCount } from '@/hooks/use-pending-ratings-count';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const cartCount = useCartCount();
+  const pendingRatingsCount = usePendingRatingsCount();
 
   return (
     <View style={{ flex: 1 }}>
@@ -35,6 +37,10 @@ export default function TabLayout() {
             title: 'Mis pedidos',
             tabBarButton: HapticTab,
             tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
+            tabBarBadge: pendingRatingsCount > 0
+              ? (pendingRatingsCount > 9 ? '9+' : pendingRatingsCount)
+              : undefined,
+            tabBarBadgeStyle: { backgroundColor: '#0EA5E9', fontSize: 10 },
           }}
         />
         <Tabs.Screen
