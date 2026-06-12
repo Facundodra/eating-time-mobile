@@ -1,6 +1,7 @@
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   ScrollView,
@@ -12,6 +13,7 @@ import {
 import { CheckCircleIcon, MoonIcon, StarIcon } from "react-native-heroicons/outline";
 
 import { Brand } from "@/constants/theme";
+import { useAuth } from "@/hooks/use-auth";
 import type { ClientDish, RestaurantList } from "@/lib/cliente/types";
 import { getDishes, getRestaurants } from "@/services/cliente/cliente-service";
 
@@ -115,26 +117,104 @@ function DishCard({ item }: { item: ClientDish }) {
 
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
+function GuestPrompt() {
+  return (
+    <View style={styles.guestBox}>
+      <Text style={styles.guestTitle}>Iniciá sesión para explorar</Text>
+      <Text style={styles.guestText}>
+        Los locales y platos solo se muestran cuando tenés una cuenta de cliente activa.
+      </Text>
+      <TouchableOpacity
+        style={styles.guestButton}
+        onPress={() => router.push("/auth/login")}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.guestButtonText}>Iniciar sesión</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <View style={styles.errorBanner}>
+      <Text style={styles.errorText}>{message}</Text>
+      <TouchableOpacity onPress={onRetry} style={styles.retryButton}>
+        <Text style={styles.retryButtonText}>Reintentar</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 export default function ClientHomePage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [restaurants, setRestaurants] = useState<RestaurantList[]>([]);
   const [dishes, setDishes] = useState<ClientDish[]>([]);
   const [loadingRestaurants, setLoadingRestaurants] = useState(true);
   const [loadingDishes, setLoadingDishes] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    if (!user) return;
+
+    setLoadingRestaurants(true);
+    setLoadingDishes(true);
+    setError(null);
+
+    try {
+      const [restaurantsResult, dishesResult] = await Promise.all([
+        getRestaurants({ ordenarPor: "calificacion", direccion: "desc", size: 8 }),
+        getDishes({ tamano: 8 }),
+      ]);
+      setRestaurants(restaurantsResult.restaurants);
+      setDishes(dishesResult);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo cargar el contenido.";
+      setError(message);
+      setRestaurants([]);
+      setDishes([]);
+    } finally {
+      setLoadingRestaurants(false);
+      setLoadingDishes(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    getRestaurants({ ordenarPor: "calificacion", direccion: "desc", size: 8 })
-      .then(({ restaurants }) => setRestaurants(restaurants))
-      .finally(() => setLoadingRestaurants(false));
-  }, []);
+    if (authLoading) return;
 
-  useEffect(() => {
-    getDishes({ tamano: 8 })
-      .then(setDishes)
-      .finally(() => setLoadingDishes(false));
-  }, []);
+    if (!user) {
+      setRestaurants([]);
+      setDishes([]);
+      setError(null);
+      setLoadingRestaurants(false);
+      setLoadingDishes(false);
+      return;
+    }
+
+    loadData();
+  }, [authLoading, user, loadData]);
+
+  if (authLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={Brand.primary} />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <ScrollView style={styles.root} contentContainerStyle={styles.guestContent}>
+        <GuestPrompt />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.root} showsVerticalScrollIndicator={false}>
+      {error ? <ErrorBanner message={error} onRetry={loadData} /> : null}
+
       {/* Mejores locales */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Mejores locales</Text>
@@ -147,6 +227,8 @@ export default function ClientHomePage() {
             contentContainerStyle={styles.listContent}
             renderItem={() => <RestaurantCardSkeleton />}
           />
+        ) : restaurants.length === 0 ? (
+          <Text style={styles.emptyText}>No hay locales para mostrar.</Text>
         ) : (
           <FlatList
             horizontal
@@ -171,6 +253,8 @@ export default function ClientHomePage() {
             contentContainerStyle={styles.listContent}
             renderItem={() => <DishCardSkeleton />}
           />
+        ) : dishes.length === 0 ? (
+          <Text style={styles.emptyText}>No hay platos para mostrar.</Text>
         ) : (
           <FlatList
             horizontal
@@ -189,6 +273,44 @@ export default function ClientHomePage() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.gray100 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: Brand.gray100 },
+  guestContent: { flexGrow: 1, justifyContent: "center", padding: 24 },
+
+  guestBox: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Brand.gray200,
+    padding: 24,
+    gap: 12,
+    alignItems: "center",
+  },
+  guestTitle: { fontSize: 18, fontWeight: "800", color: Brand.black, textAlign: "center" },
+  guestText: { fontSize: 14, color: Brand.gray600, textAlign: "center", lineHeight: 20 },
+  guestButton: {
+    marginTop: 8,
+    backgroundColor: Brand.primary,
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  guestButtonText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+
+  errorBanner: {
+    margin: 16,
+    marginBottom: 0,
+    backgroundColor: "#FEF2F2",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    padding: 16,
+    gap: 10,
+  },
+  errorText: { color: "#DC2626", fontSize: 13, textAlign: "center" },
+  retryButton: { alignSelf: "center", paddingVertical: 6, paddingHorizontal: 12 },
+  retryButtonText: { color: Brand.primary, fontSize: 13, fontWeight: "600" },
+
+  emptyText: { fontSize: 13, color: Brand.gray400, paddingVertical: 8 },
 
   section: { marginTop: 24, paddingHorizontal: 16 },
   sectionTitle: { fontSize: 16, fontWeight: "700", color: Brand.black, marginBottom: 12 },

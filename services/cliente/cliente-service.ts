@@ -1,17 +1,20 @@
 import axios from 'axios';
 
 import type {
-  ClienteDto,
-  RestaurantList,
-  Restaurant,
-  ClientDish,
-  DeliveryPoint,
-  DeliveryPointCredentials,
-  LocalRating
+    Cart,
+    ClientDish,
+    ClienteDto,
+    DeliveryPoint,
+    DeliveryPointCredentials,
+    LocalRating,
+    OrderRequest,
+    PaymentResponse,
+    Restaurant,
+    RestaurantList,
 } from '@/lib/cliente/types';
 
+import { requireClienteId } from '@/lib/cliente/require-session';
 import { apiClient } from '../api-client';
-import { getSession } from "@/lib/auth/session";
 
 async function getCliente(id: string): Promise<ClienteDto> {
   const { data } = await apiClient.get<ClienteDto>(`/api/clientes/${id}`);
@@ -93,8 +96,7 @@ function mapRestaurantDtoApiToRestaurantType(r: RestaurantDtoFromApi): Restauran
 export async function getRestaurants(
     filter: RestaurantFilter = {}
 ): Promise<{ restaurants: RestaurantList[]; totalPages: number }> {
-    const session = getSession();
-    if(!session) throw new Error("Sesión no encontrada");
+    await requireClienteId();
 
     try {
         const response = await apiClient.get<RestaurantPageResponse>(`/api/locales`, { params: filter });
@@ -143,10 +145,7 @@ export async function getRestaurantName(id: number): Promise<string> {
 }
 
 export async function getRestaurant(id: string): Promise<Restaurant> {
-    if (typeof window !== 'undefined') {
-        const session = getSession();
-        if (!session) throw new Error("Sesión no encontrada");
-    }
+    await requireClienteId();
 
     try {
         const response = await apiClient.get<RestaurantSingleDtoFromApi>(`/api/locales/${id}`);
@@ -201,8 +200,7 @@ export type DishFilter = {
 };
 
 export async function getDishes(filter?: DishFilter): Promise<ClientDish[]>{
-    const session = getSession();
-    if (!session) throw new Error("Sesión no encontrada");
+    await requireClienteId();
 
     const params = new URLSearchParams();
     if (filter?.idLocal != null)    params.set("idLocal",      String(filter.idLocal));
@@ -231,10 +229,7 @@ export async function getDishes(filter?: DishFilter): Promise<ClientDish[]>{
 }
 
 export async function getDish(id: string): Promise<ClientDish> {
-    if (typeof window !== 'undefined') {
-        const session = getSession();
-        if (!session) throw new Error("Sesión no encontrada");
-    }
+    await requireClienteId();
 
     try {
         const response = await apiClient.get<PlatoDtoFromApi>(`/api/platos/${id}`);
@@ -249,6 +244,144 @@ export async function getDish(id: string): Promise<ClientDish> {
     }
 }
 
+
+// ── Carrito ────────────────────────────────────────────────────────────────────
+
+type CartFromApi = Omit<Cart, 'restaurantId'> & { localId: number };
+
+function mapCartFromApi(cart: CartFromApi): Cart {
+  const { localId, ...rest } = cart;
+  return { ...rest, restaurantId: localId };
+}
+
+export async function getCarts(): Promise<Cart[]> {
+  const clienteId = await requireClienteId();
+
+  try {
+    const { data } = await apiClient.get<CartFromApi[]>(`/api/clientes/${clienteId}/carritos`);
+    return data.map(mapCartFromApi);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al obtener carritos';
+      throw new Error(msg);
+    }
+    throw new Error('No se pudieron cargar los carritos.');
+  }
+}
+
+export async function getCart(restaurantId: number): Promise<Cart | null> {
+  const clienteId = await requireClienteId();
+
+  try {
+    const { data } = await apiClient.get<CartFromApi>(`/api/clientes/${clienteId}/carritos/${restaurantId}`);
+    return mapCartFromApi(data);
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al obtener carrito';
+      throw new Error(msg);
+    }
+    throw new Error('No se pudo cargar el carrito.');
+  }
+}
+
+export async function updateCartItem(
+  restaurantId: number,
+  platoId: number,
+  cantidad: number,
+): Promise<Cart> {
+  const clienteId = await requireClienteId();
+
+  try {
+    const { data } = await apiClient.post<CartFromApi>(
+      `/api/clientes/${clienteId}/local/${restaurantId}/agregar-plato/${platoId}/cantidad/${cantidad}`,
+    );
+    return mapCartFromApi(data);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al actualizar carrito';
+      throw new Error(msg);
+    }
+    throw new Error('No se pudo actualizar el carrito.');
+  }
+}
+
+export async function deleteCart(restaurantId: number): Promise<void> {
+  const clienteId = await requireClienteId();
+
+  try {
+    await apiClient.delete(`/api/clientes/${clienteId}/carritos/${restaurantId}`);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al eliminar carrito';
+      throw new Error(msg);
+    }
+    throw new Error('No se pudo eliminar el carrito.');
+  }
+}
+
+export async function placeOrder(restaurantId: number, body: OrderRequest): Promise<PaymentResponse> {
+  const clienteId = await requireClienteId();
+
+  try {
+    const { data } = await apiClient.patch<PaymentResponse>(
+      `/api/clientes/${clienteId}/carritos/${restaurantId}`,
+      body,
+    );
+    return data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al realizar pedido';
+      throw new Error(msg);
+    }
+    throw new Error('No se pudo realizar el pedido.');
+  }
+}
+
+export async function getPendingConfirmationOrders(): Promise<Cart[]> {
+  const clienteId = await requireClienteId();
+
+  try {
+    const { data } = await apiClient.get<CartFromApi[]>(
+      `/api/clientes/${clienteId}/pedidos/pendientes-confirmacion`,
+    );
+    return data.map(mapCartFromApi);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al verificar pedido';
+      throw new Error(msg);
+    }
+    throw new Error('No se pudo verificar el estado del pedido.');
+  }
+}
+
+export async function resolvePaymentStatus(
+  pedidoId: number,
+  localId: number,
+): Promise<'approved' | 'failure' | 'pending'> {
+  const pending = await getPendingConfirmationOrders();
+  if (pending.some((p) => p.id === pedidoId)) {
+    return 'approved';
+  }
+
+  const cart = await getCart(localId);
+
+  // El pedido sigue EN_CARRITO: el callback de MP puede no haber corrido aún
+  // (el usuario volvió a la app antes de que el backend procese el pago).
+  if (cart && cart.id === pedidoId) {
+    return 'pending';
+  }
+
+  // Ya no hay carrito activo para este local pero tampoco aparece en pendientes:
+  // el callback puede estar en curso; seguir polling.
+  if (!cart) {
+    return 'pending';
+  }
+
+  return 'pending';
+}
 
 // ── Calificaciones ─────────────────────────────────────────────────────────────
 export async function getLocalRatings(restaurantId: number): Promise<LocalRating[]> {

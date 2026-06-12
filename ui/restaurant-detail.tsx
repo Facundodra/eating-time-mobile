@@ -13,12 +13,14 @@ import {
   ChevronLeftIcon,
   MapPinIcon,
   MoonIcon,
+  ShoppingCartIcon,
   StarIcon,
 } from "react-native-heroicons/outline";
 
 import { Brand } from "@/constants/theme";
-import type { Restaurant } from "@/lib/cliente/types";
-import { getRestaurant } from "@/services/cliente/cliente-service";
+import { getCartItemCount } from "@/lib/cliente/cart-utils";
+import type { Cart, Restaurant } from "@/lib/cliente/types";
+import { getCart, getRestaurant } from "@/services/cliente/cliente-service";
 import DishesList from "@/ui/dish-list";
 
 
@@ -40,13 +42,18 @@ export default function RestaurantDetailScreen({ id }: { id: string }) {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cart, setCart] = useState<Cart | null>(null);
 
   useEffect(() => {
     getRestaurant(id)
       .then(setRestaurant)
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar"))
       .finally(() => setLoading(false));
+
+    getCart(Number(id)).then(setCart).catch(() => setCart(null));
   }, [id]);
+
+  const cartItemCount = getCartItemCount(cart);
 
   return (
     <View style={styles.root}>
@@ -68,7 +75,7 @@ export default function RestaurantDetailScreen({ id }: { id: string }) {
       ) : loading ? (
         <RestaurantInfoSkeleton />
       ) : restaurant ? (
-        <View style={styles.body}>
+        <View style={[styles.body, cartItemCount > 0 && styles.bodyWithCart]}>
           {/* Ficha del local */}
           <View style={styles.infoCard}>
             <View style={styles.avatarWrapper}>
@@ -124,9 +131,36 @@ export default function RestaurantDetailScreen({ id }: { id: string }) {
 
           {/* Platos */}
           <Text style={styles.dishesTitle}>Platos disponibles</Text>
-          <DishesList idLocal={Number(id)} />
+          <DishesList idLocal={Number(id)} cart={cart} onCartUpdate={setCart} />
         </View>
       ) : null}
+
+      {cartItemCount > 0 && (
+        <View style={styles.cartBar}>
+          <View style={styles.cartBarInner}>
+            <View style={styles.cartBarLeft}>
+              <View>
+                <ShoppingCartIcon size={24} color="#fff" />
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{cartItemCount}</Text>
+                </View>
+              </View>
+              <View>
+                <Text style={styles.cartBarTitle}>Tu pedido</Text>
+                <Text style={styles.cartBarTotal}>${cart?.total.toFixed(2)}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.cartBarBtn}
+              onPress={() =>
+                router.push({ pathname: "/(tabs)/local/[id]/cart", params: { id } })
+              }
+            >
+              <Text style={styles.cartBarBtnText}>Ver carrito</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -140,6 +174,7 @@ const styles = StyleSheet.create({
   backText: { fontSize: 14, color: Brand.gray600 },
 
   body: { flex: 1 },
+  bodyWithCart: { paddingBottom: 88 },
 
   infoCard: { flexDirection: "row", backgroundColor: "#fff", padding: 16, gap: 14, borderBottomWidth: 1, borderBottomColor: Brand.gray200 },
 
@@ -171,4 +206,52 @@ const styles = StyleSheet.create({
 
   skeletonAvatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: Brand.gray200 },
   skeletonLine: { height: 12, borderRadius: 6, backgroundColor: Brand.gray200 },
+
+  cartBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 8,
+    backgroundColor: "transparent",
+  },
+  cartBarInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Brand.primary,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  cartBarLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  cartBadge: {
+    position: "absolute",
+    top: -6,
+    right: -8,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  cartBadgeText: { fontSize: 10, fontWeight: "700", color: Brand.primary },
+  cartBarTitle: { fontSize: 13, fontWeight: "600", color: "#fff" },
+  cartBarTotal: { fontSize: 11, color: "rgba(255,255,255,0.8)" },
+  cartBarBtn: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  cartBarBtnText: { fontSize: 13, fontWeight: "700", color: Brand.primary },
 });
