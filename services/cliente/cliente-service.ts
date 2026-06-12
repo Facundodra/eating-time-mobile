@@ -1,16 +1,16 @@
 import axios from 'axios';
 
 import type {
-  Cart,
-  ClienteDto,
-  RestaurantList,
-  Restaurant,
-  ClientDish,
-  DeliveryPoint,
-  DeliveryPointCredentials,
-  LocalRating,
-  OrderRequest,
-  PaymentResponse,
+    Cart,
+    ClientDish,
+    ClienteDto,
+    DeliveryPoint,
+    DeliveryPointCredentials,
+    LocalRating,
+    OrderRequest,
+    PaymentResponse,
+    Restaurant,
+    RestaurantList,
 } from '@/lib/cliente/types';
 
 import { requireClienteId } from '@/lib/cliente/require-session';

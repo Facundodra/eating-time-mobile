@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { router } from 'expo-router';
 
+import { registerSessionExpiredHandler } from './session-expired';
 import { clearSession, getSession, saveSession } from './session';
 import type { AuthUser, LoginCredentials } from './types';
 
@@ -30,6 +32,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setIsLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    registerSessionExpiredHandler(async () => {
+      await clearSession();
+      setUser(null);
+      router.replace('/auth/login');
+    });
+
+    return () => registerSessionExpiredHandler(null);
   }, []);
 
   async function setSession(newUser: AuthUser, sessionId?: string) {
