@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   Linking,
   Modal,
   Pressable,
@@ -15,8 +13,11 @@ import { XMarkIcon } from 'react-native-heroicons/outline';
 
 import { Brand } from '@/constants/theme';
 import { formatOrderDate, formatOrderPrice, statusColors, statusLabels } from '@/lib/cliente/order-utils';
+import { notifyPendingOrdersRefresh } from '@/lib/cliente/pending-orders-refresh';
 import type { Order } from '@/lib/cliente/types';
-import { cancelOrder } from '@/services/cliente/cliente-service';
+import { CancelOrderError, cancelOrder } from '@/services/cliente/cliente-service';
+
+import CancelOrderModal from './cancel-order-modal';
 
 type Props = {
   visible: boolean;
@@ -48,6 +49,7 @@ export default function OrderDetailModal({
   onClose,
   onOrderUpdated,
 }: Props) {
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
@@ -57,22 +59,18 @@ export default function OrderDetailModal({
   const canCancel = order.estado === 'PENDIENTE_CONFIRMACION_LOCAL';
   const statusStyle = statusColors[order.estado];
 
-  function confirmCancel() {
-    Alert.alert(
-      'Cancelar pedido',
-      '¿Estás seguro de que querés cancelar este pedido? El local será notificado y no se realizará reembolso automático.',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Sí, cancelar',
-          style: 'destructive',
-          onPress: () => void handleCancel(),
-        },
-      ],
-    );
+  function handleOpenCancelModal() {
+    setCancelError(null);
+    setShowCancelModal(true);
   }
 
-  async function handleCancel() {
+  function handleCloseCancelModal() {
+    if (cancelling) return;
+    setShowCancelModal(false);
+    setCancelError(null);
+  }
+
+  async function handleConfirmCancel() {
     if (!order) return;
     const orderId = order.id;
     setCancelling(true);
@@ -80,10 +78,18 @@ export default function OrderDetailModal({
 
     try {
       const updated = await cancelOrder(orderId);
+      notifyPendingOrdersRefresh();
       onOrderUpdated(updated);
+      setShowCancelModal(false);
       onClose();
     } catch (error) {
-      setCancelError(error instanceof Error ? error.message : 'No se pudo cancelar el pedido.');
+      if (error instanceof CancelOrderError && error.notCancelable) {
+        setShowCancelModal(false);
+        onOrderUpdated({ ...order, estado: 'ACEPTADO_LOCAL' });
+      }
+      setCancelError(
+        error instanceof Error ? error.message : 'No se pudo cancelar el pedido.',
+      );
     } finally {
       setCancelling(false);
     }
@@ -180,21 +186,25 @@ export default function OrderDetailModal({
                 </Text>
                 {cancelError ? <Text style={styles.cancelError}>{cancelError}</Text> : null}
                 <TouchableOpacity
-                  style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
-                  onPress={confirmCancel}
-                  disabled={cancelling}
+                  style={styles.cancelBtn}
+                  onPress={handleOpenCancelModal}
                 >
-                  {cancelling ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.cancelBtnText}>Cancelar pedido</Text>
-                  )}
+                  <Text style={styles.cancelBtnText}>Cancelar pedido</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
           </ScrollView>
         </View>
       </View>
+
+      <CancelOrderModal
+        visible={showCancelModal}
+        order={order}
+        restaurantName={restaurantName}
+        isProcessing={cancelling}
+        onClose={handleCloseCancelModal}
+        onConfirm={() => void handleConfirmCancel()}
+      />
     </Modal>
   );
 }
