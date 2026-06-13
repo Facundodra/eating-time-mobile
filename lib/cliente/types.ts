@@ -115,7 +115,7 @@ export type Cart = {
   items: CartItem[];
 };
 
-// Calificacion de local 
+// Calificacion de local
 export type LocalRating = {
   id: number;
   calificacion: number;
@@ -124,3 +124,49 @@ export type LocalRating = {
   pedidoId: number;
   nombreCliente: string;
 }
+
+export type PedidoEstado =
+  | 'EN_CARRITO'
+  | 'ETAPA_DE_PAGO'
+  | 'PENDIENTE_CONFIRMACION_LOCAL'
+  | 'CONFIRMADO'
+  | 'EN_PREPARACION'
+  | 'EN_CAMINO'
+  | 'FINALIZADO'
+  | 'CANCELADO';
+
+export type PlatoPedidoDto = {
+  id: number;
+  platoId: number;
+  nombre: string;
+  cantidad: number;
+  costoUnitario: number;
+  total: number;
+};
+
+export type PedidoDto = {
+  id: number;
+  clienteId: number;
+  localId: number;
+  localNombre: string;
+  estado: PedidoEstado;
+  total: number;
+  items: PlatoPedidoDto[];
+  tieneCalificacionLocal: boolean;
+  creacion: string;
+  direccion: string | null;
+  indicaciones: string | null;
+};
+
+export type CalificacionLocalRequestDto = {
+  calificacion: string;
+  comentario?: string;
+};
+
+export type Page<T> = {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  number: number;
+  size: number;
+};
