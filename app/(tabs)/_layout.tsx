@@ -1,4 +1,5 @@
-import { Tabs } from 'expo-router';
+import { router, Tabs } from 'expo-router';
+import { useEffect } from 'react';
 import { View } from 'react-native';
 
 import Header from '@/components/shared/header';
@@ -6,11 +7,23 @@ import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useCartCount } from '@/hooks/use-cart-count';
+import { useAuth } from '@/hooks/use-auth';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const cartCount = useCartCount();
+  const { user, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.replace('/auth/login');
+    }
+  }, [isLoading, user]);
+
+  if (isLoading || !user) {
+    return null;
+  }
 
   return (
     <View style={{ flex: 1 }}>

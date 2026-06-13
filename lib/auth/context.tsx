@@ -50,9 +50,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function login(credentials: LoginCredentials) {
-    const { authService } = await import('@/services/auth-service');
+    const { authService, getCurrentSession } = await import('@/services/auth-service');
     const { sessionId, user: newUser } = await authService.login(credentials);
     await setSession(newUser, sessionId);
+
+    try {
+      const session = await getCurrentSession();
+      await setSession({ ...newUser, name: session.nombre, photoUrl: session.urlFoto }, sessionId);
+    } catch {
+      // el nombre/foto son mejoras best-effort; si falla, queda la sesión básica
+    }
   }
 
   async function logout() {

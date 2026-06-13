@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -37,28 +37,29 @@ export default function CartsPage() {
   const [error, setError] = useState<string | null>(null);
   const [deletingRestaurantId, setDeletingRestaurantId] = useState<number | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const rawCarts = await getCarts();
-        const cartsWithNames = await Promise.all(
-          rawCarts.map(async (cart) => {
-            const restaurantName = await getRestaurantName(cart.restaurantId).catch(
-              () => `Restaurante #${cart.restaurantId}`,
-            );
-            return { ...cart, restaurantName };
-          }),
-        );
-        setCarts(cartsWithNames);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'No se pudieron cargar los carritos.');
-      } finally {
-        setLoading(false);
-      }
+  const load = useCallback(async () => {
+    try {
+      const rawCarts = await getCarts();
+      const activeCarts = rawCarts.filter((cart) => getActiveCartItems(cart).length > 0);
+      const cartsWithNames = await Promise.all(
+        activeCarts.map(async (cart) => {
+          const restaurantName = await getRestaurantName(cart.restaurantId).catch(
+            () => `Restaurante #${cart.restaurantId}`,
+          );
+          return { ...cart, restaurantName };
+        }),
+      );
+      setCarts(cartsWithNames);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron cargar los carritos.');
+    } finally {
+      setLoading(false);
     }
-
-    load();
   }, []);
+
+  useFocusEffect(useCallback(() => {
+    load();
+  }, [load]));
 
   async function handleDelete(restaurantId: number) {
     setDeletingRestaurantId(restaurantId);

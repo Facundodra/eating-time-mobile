@@ -50,7 +50,7 @@ export default function Header({ cartCount = 0 }: Props) {
             onPress={() => router.push('/(tabs)/mi-cuenta')}
             activeOpacity={0.8}
           >
-            <ProfileAvatar name={user.name} size={36} />
+            <ProfileAvatar name={user.name} photoUrl={user.photoUrl} size={36} />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
