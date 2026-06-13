@@ -2,20 +2,16 @@ import type { OrderHistoryStatus } from '@/lib/cliente/types';
 
 export const ORDER_PAGE_SIZE = 10;
 
-export type SortKey = 'fecha-desc' | 'fecha-asc' | 'precio-desc' | 'precio-asc';
+export type SortKey = 'fecha-desc' | 'fecha-asc';
 
-export const sortMap: Record<SortKey, { ordenarPor: 'fecha' | 'precio'; direccion: 'asc' | 'desc' }> = {
+export const sortMap: Record<SortKey, { ordenarPor: 'fecha'; direccion: 'asc' | 'desc' }> = {
   'fecha-desc': { ordenarPor: 'fecha', direccion: 'desc' },
   'fecha-asc': { ordenarPor: 'fecha', direccion: 'asc' },
-  'precio-desc': { ordenarPor: 'precio', direccion: 'desc' },
-  'precio-asc': { ordenarPor: 'precio', direccion: 'asc' },
 };
 
 export const sortLabels: Record<SortKey, string> = {
   'fecha-desc': 'Fecha: más recientes',
   'fecha-asc': 'Fecha: más antiguos',
-  'precio-desc': 'Precio: mayor a menor',
-  'precio-asc': 'Precio: menor a mayor',
 };
 
 export const statusLabels: Record<OrderHistoryStatus, string> = {
