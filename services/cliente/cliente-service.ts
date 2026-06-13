@@ -368,20 +368,35 @@ export async function placeOrder(restaurantId: number, body: OrderRequest): Prom
   }
 }
 
-export async function getPendingConfirmationOrders(): Promise<Cart[]> {
+export async function getPendingConfirmationOrders(): Promise<Order[]> {
   const clienteId = await requireClienteId();
 
   try {
-    const { data } = await apiClient.get<CartFromApi[]>(
+    const { data } = await apiClient.get<PedidoDtoFromApi[]>(
       `/api/clientes/${clienteId}/pedidos/pendientes-confirmacion`,
     );
-    return data.map(mapCartFromApi);
+    return data.map(mapOrderFromApi);
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al verificar pedido';
-      throw new Error(msg);
+      const status = error.response?.status;
+      const message = getApiErrorMessage(error.response?.data);
+
+      if (status === 404) {
+        throw new Error('Los pedidos pendientes de confirmación no están disponibles en el servidor.');
+      }
+
+      throw new Error(message ?? `Error al obtener pedidos pendientes (${status})`);
     }
-    throw new Error('No se pudo verificar el estado del pedido.');
+    throw new Error('No se pudieron cargar los pedidos en curso.');
+  }
+}
+
+export async function getPendingConfirmationOrdersCount(): Promise<number> {
+  try {
+    const orders = await getPendingConfirmationOrders();
+    return orders.length;
+  } catch {
+    return 0;
   }
 }
 
@@ -769,12 +784,17 @@ export async function getOrderHistoryRestaurants(): Promise<OrderHistoryRestaura
 }
 
 export async function getPendingOrderRatingsCount(): Promise<number> {
+    const orders = await getUnratedFinishedOrders();
+    return orders.length;
+}
+
+export async function getUnratedFinishedOrders(): Promise<Order[]> {
     let page = 0;
     let totalPages = 1;
-    let pendingRatings = 0;
+    const orders: Order[] = [];
 
     while (page < totalPages) {
-        const { orders, totalPages: pages } = await getOrderHistory({
+        const { orders: batch, totalPages: pages } = await getOrderHistory({
             page,
             size: 100,
             ordenarPor: 'fecha',
@@ -782,13 +802,15 @@ export async function getPendingOrderRatingsCount(): Promise<number> {
         });
 
         totalPages = pages;
-        pendingRatings += orders.filter(
-            (order) => order.estado === 'FINALIZADO' && !order.hasLocalRating,
-        ).length;
+        orders.push(
+            ...batch.filter(
+                (order) => order.estado === 'FINALIZADO' && !order.hasLocalRating && !order.calificacionLocal,
+            ),
+        );
         page += 1;
     }
 
-    return pendingRatings;
+    return orders;
 }
 
 export async function getOrderLocalRating(orderId: number): Promise<OrderRating | null> {
@@ -836,6 +858,17 @@ export async function submitOrderLocalRating(
     }
 }
 
+export class CancelOrderError extends Error {
+    constructor(
+        message: string,
+        public readonly status?: number,
+        public readonly notCancelable = false,
+    ) {
+        super(message);
+        this.name = 'CancelOrderError';
+    }
+}
+
 export async function cancelOrder(pedidoId: number): Promise<Order> {
     const clienteId = await requireClienteId();
 
@@ -846,14 +879,27 @@ export async function cancelOrder(pedidoId: number): Promise<Order> {
         return mapOrderFromApi(data);
     } catch (error) {
         if (axios.isAxiosError(error)) {
-            const responseData = error.response?.data as { error?: string; message?: string } | string | undefined;
-            const message =
-                typeof responseData === 'string'
-                    ? responseData
-                    : responseData?.error ?? responseData?.message ?? `Error al cancelar pedido (${error.response?.status})`;
-            throw new Error(message);
+            const status = error.response?.status;
+            const message = getApiErrorMessage(error.response?.data);
+
+            if (status === 409) {
+                throw new CancelOrderError('Tu pedido ya no es cancelable.', 409, true);
+            }
+            if (status === 404) {
+                throw new CancelOrderError(message ?? 'Pedido no encontrado.', 404);
+            }
+            if (status === 403) {
+                throw new CancelOrderError(
+                    message ?? 'No tenés permiso para cancelar este pedido.',
+                    403,
+                );
+            }
+            throw new CancelOrderError(
+                message ?? 'No se pudo cancelar el pedido. Intentalo nuevamente.',
+                status,
+            );
         }
-        throw new Error('No se pudo cancelar el pedido.');
+        throw new CancelOrderError('No se pudo cancelar el pedido. Intentalo nuevamente.');
     }
 }
 
@@ -869,5 +915,61 @@ export async function getLocalRatings(restaurantId: number): Promise<LocalRating
             throw new Error(message);
         }
         throw new Error("No se pudo cargar los comentarios.");
+    }
+}
+
+function getApiErrorMessage(data: unknown): string | undefined {
+    if (!data || typeof data !== 'object') return undefined;
+
+    const payload = data as Record<string, unknown>;
+    if (typeof payload.message === 'string') return payload.message;
+    if (typeof payload.error === 'string') return payload.error;
+    if (typeof payload.detail === 'string') return payload.detail;
+    return undefined;
+}
+
+export class AccountDeletionError extends Error {
+    constructor(
+        message: string,
+        public readonly status?: number,
+        public readonly hasPendingOrders = false,
+    ) {
+        super(message);
+        this.name = 'AccountDeletionError';
+    }
+}
+
+export async function deleteClientAccount(): Promise<void> {
+    const clienteId = await requireClienteId();
+
+    try {
+        await apiClient.delete(`/api/clientes/${clienteId}/cuenta`);
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const message = getApiErrorMessage(error.response?.data);
+
+            if (status === 403) {
+                throw new AccountDeletionError(
+                    message ?? 'No tenés permiso para eliminar esta cuenta.',
+                    403,
+                );
+            }
+            if (status === 404) {
+                throw new AccountDeletionError(message ?? 'Cuenta no encontrada.', 404);
+            }
+            if (status === 409) {
+                throw new AccountDeletionError(
+                    message ?? 'No podés eliminar la cuenta en este momento.',
+                    409,
+                    true,
+                );
+            }
+            throw new AccountDeletionError(
+                message ?? `Error al eliminar la cuenta (${status})`,
+                status,
+            );
+        }
+        throw new AccountDeletionError('No se pudo eliminar la cuenta. Intentalo nuevamente.');
     }
 }

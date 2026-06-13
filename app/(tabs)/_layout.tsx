@@ -100,6 +100,18 @@ export default function TabLayout() {
           name="cliente/editar-perfil"
           options={{ href: null }}
         />
+        <Tabs.Screen
+          name="cliente/pedidos-pendientes"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="cliente/calificaciones-pedidos"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="cliente/dar-de-baja-cuenta"
+          options={{ href: null }}
+        />
       </Tabs>
     </View>
   );
