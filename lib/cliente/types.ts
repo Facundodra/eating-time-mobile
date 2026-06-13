@@ -39,6 +39,12 @@ export type ClientDish = {
   categories: number[];
 }
 
+export type Discount = {
+  id: number;
+  porcentaje: number;
+  estado: boolean;
+};
+
 export type RestaurantList = {
   id: number;
   name: string;

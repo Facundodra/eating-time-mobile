@@ -119,7 +119,7 @@ function CheckoutSection({
           localId: String(restaurantId),
         },
       });
-      await WebBrowser.openBrowserAsync(linkPago);
+      await WebBrowser.openAuthSessionAsync(linkPago, 'eatingtime://');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo realizar el pedido.');
     } finally {

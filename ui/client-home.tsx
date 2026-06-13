@@ -10,12 +10,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { CheckCircleIcon, MoonIcon, StarIcon } from "react-native-heroicons/outline";
+import { CheckCircleIcon, MoonIcon, StarIcon, TagIcon } from "react-native-heroicons/outline";
 
 import { Brand } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
-import type { ClientDish, RestaurantList } from "@/lib/cliente/types";
-import { getDishes, getRestaurants } from "@/services/cliente/cliente-service";
+import type { ClientDish, Discount, RestaurantList } from "@/lib/cliente/types";
+import { getDishDiscount, getDishes, getDiscountedDishIds, getRestaurants } from "@/services/cliente/cliente-service";
 
 
 // ─── Skeletons ────────────────────────────────────────────────────────────────
@@ -86,7 +86,11 @@ function RestaurantCard({ item }: { item: RestaurantList }) {
   );
 }
 
-function DishCard({ item }: { item: ClientDish }) {
+function DishCard({ item, discount }: { item: ClientDish; discount?: Discount | null }) {
+  const discountedPrice = discount
+    ? Math.round(item.price * (1 - discount.porcentaje / 100) * 100) / 100
+    : null;
+
   return (
     <TouchableOpacity
       style={styles.dishCard}
@@ -105,10 +109,23 @@ function DishCard({ item }: { item: ClientDish }) {
             {item.name.charAt(0).toUpperCase()}
           </Text>
         )}
+        {discount && (
+          <View style={styles.discountBadge}>
+            <TagIcon size={11} color="#fff" />
+            <Text style={styles.discountBadgeText}>-{discount.porcentaje}%</Text>
+          </View>
+        )}
       </View>
       <View style={styles.dishInfo}>
         <Text style={styles.dishName} numberOfLines={2}>{item.name}</Text>
-        <Text style={styles.dishPrice}>${item.price}</Text>
+        {discountedPrice != null ? (
+          <View style={styles.priceRow}>
+            <Text style={styles.dishPrice}>${discountedPrice}</Text>
+            <Text style={styles.originalPrice}>${item.price}</Text>
+          </View>
+        ) : (
+          <Text style={styles.dishPrice}>${item.price}</Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -153,6 +170,7 @@ export default function ClientHomePage() {
   const [loadingRestaurants, setLoadingRestaurants] = useState(true);
   const [loadingDishes, setLoadingDishes] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [discounts, setDiscounts] = useState<Map<number, Discount | null>>(new Map());
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -194,6 +212,37 @@ export default function ClientHomePage() {
 
     loadData();
   }, [authLoading, user, loadData]);
+
+  useEffect(() => {
+    if (dishes.length === 0) {
+      setDiscounts(new Map());
+      return;
+    }
+
+    let cancelled = false;
+    getDiscountedDishIds()
+      .then((discountedIds) => {
+        const idsToFetch = dishes
+          .map((dish) => Number(dish.id))
+          .filter((id) => discountedIds.has(id));
+        if (idsToFetch.length === 0) return;
+        return Promise.allSettled(idsToFetch.map(getDishDiscount)).then((results) => {
+          if (cancelled) return;
+          setDiscounts((prev) => {
+            const next = new Map(prev);
+            results.forEach((result, i) => {
+              next.set(idsToFetch[i], result.status === "fulfilled" ? result.value : null);
+            });
+            return next;
+          });
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dishes]);
 
   if (authLoading) {
     return (
@@ -262,7 +311,7 @@ export default function ClientHomePage() {
             keyExtractor={(item) => item.id}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => <DishCard item={item} />}
+            renderItem={({ item }) => <DishCard item={item} discount={discounts.get(Number(item.id))} />}
           />
         )}
       </View>
@@ -328,12 +377,28 @@ const styles = StyleSheet.create({
 
   // Dish card
   dishCard: { width: 140, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: Brand.gray200, overflow: "hidden" },
-  dishImgWrapper: { height: 110, backgroundColor: "#FFF7ED", justifyContent: "center", alignItems: "center" },
+  dishImgWrapper: { height: 110, backgroundColor: "#FFF7ED", justifyContent: "center", alignItems: "center", position: "relative" },
   dishImg: { width: "100%", height: "100%" },
   dishImgPlaceholder: { fontSize: 38, fontWeight: "900", color: Brand.primary },
   dishInfo: { padding: 10, gap: 3 },
   dishName: { fontSize: 12, fontWeight: "700", color: Brand.black },
   dishPrice: { fontSize: 13, fontWeight: "700", color: Brand.primary },
+  priceRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  originalPrice: { fontSize: 11, color: Brand.gray400, textDecorationLine: "line-through" },
+
+  discountBadge: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Brand.primary,
+    borderRadius: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  discountBadgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
 
   // Badge
   badge: { position: "absolute", top: 7, right: 7, flexDirection: "row", alignItems: "center", gap: 3, borderRadius: 20, paddingHorizontal: 6, paddingVertical: 2 },

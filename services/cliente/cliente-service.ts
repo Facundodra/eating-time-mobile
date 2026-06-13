@@ -7,6 +7,7 @@ import type {
     ClienteDto,
     DeliveryPoint,
     DeliveryPointCredentials,
+    Discount,
     LocalRating,
     Order,
     OrderHistoryStatus,
@@ -249,6 +250,28 @@ export async function getDish(id: string): Promise<ClientDish> {
     }
 }
 
+export async function getDishDiscount(dishId: number): Promise<Discount | null> {
+    await requireClienteId();
+
+    try {
+        const response = await apiClient.get<Discount>(`/api/descuentos/plato/${dishId}`);
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            if (error.response?.status === 404) return null;
+            const data = error.response?.data;
+            const message = data?.error ?? data?.message ?? `Error al obtener descuento (${error.response?.status})`;
+            throw new Error(message);
+        }
+        throw new Error("No se pudo cargar el descuento.");
+    }
+}
+
+export async function getDiscountedDishIds(idLocal?: number): Promise<Set<number>> {
+    const dishes = await getDishes({ idLocal, conDescuento: true, tamano: 100 });
+    return new Set(dishes.map((dish) => Number(dish.id)));
+}
+
 
 // ── Carrito ────────────────────────────────────────────────────────────────────
 
@@ -333,7 +356,7 @@ export async function placeOrder(restaurantId: number, body: OrderRequest): Prom
   try {
     const { data } = await apiClient.patch<PaymentResponse>(
       `/api/clientes/${clienteId}/carritos/${restaurantId}`,
-      body,
+      { ...body, isMobile: true },
     );
     return data;
   } catch (error) {

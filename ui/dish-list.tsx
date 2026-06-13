@@ -15,8 +15,8 @@ import { MinusIcon, PlusIcon, TagIcon } from "react-native-heroicons/outline";
 
 import { Brand } from "@/constants/theme";
 import { getActiveCartItems } from "@/lib/cliente/cart-utils";
-import type { Cart, ClientDish } from "@/lib/cliente/types";
-import { getDishes, updateCartItem, type DishFilter } from "@/services/cliente/cliente-service";
+import type { Cart, ClientDish, Discount } from "@/lib/cliente/types";
+import { getDishDiscount, getDishes, getDiscountedDishIds, updateCartItem, type DishFilter } from "@/services/cliente/cliente-service";
 
 const PAGE_SIZE = 20;
 
@@ -66,6 +66,39 @@ export default function DishesList({ idLocal, cart, onCartUpdate }: Props) {
 
   const [precioMin, setPrecioMin] = useState("");
   const [precioMax, setPrecioMax] = useState("");
+
+  const [discountedIds, setDiscountedIds] = useState<Set<number> | null>(null);
+  const [discounts, setDiscounts] = useState<Map<number, Discount | null>>(new Map());
+  const requestedDiscountIds = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    setDiscountedIds(null);
+    setDiscounts(new Map());
+    requestedDiscountIds.current = new Set();
+    let cancelled = false;
+    getDiscountedDishIds(idLocal)
+      .then((ids) => { if (!cancelled) setDiscountedIds(ids); })
+      .catch(() => { if (!cancelled) setDiscountedIds(new Set()); });
+    return () => { cancelled = true; };
+  }, [idLocal]);
+
+  useEffect(() => {
+    if (!discountedIds) return;
+    const idsToFetch = dishes
+      .map((dish) => Number(dish.id))
+      .filter((id) => discountedIds.has(id) && !requestedDiscountIds.current.has(id));
+    if (idsToFetch.length === 0) return;
+    idsToFetch.forEach((id) => requestedDiscountIds.current.add(id));
+    Promise.allSettled(idsToFetch.map(getDishDiscount)).then((results) => {
+      setDiscounts((prev) => {
+        const next = new Map(prev);
+        results.forEach((result, i) => {
+          next.set(idsToFetch[i], result.status === "fulfilled" ? result.value : null);
+        });
+        return next;
+      });
+    });
+  }, [dishes, discountedIds]);
 
   useEffect(() => {
     const isNewSearch = page === 1;
@@ -221,6 +254,10 @@ export default function DishesList({ idLocal, cart, onCartUpdate }: Props) {
             const qty = getCartQty(item.id);
             const isUpdating = updatingDishId === Number(item.id);
             const showCart = idLocal != null && onCartUpdate != null;
+            const discount = discounts.get(Number(item.id));
+            const discountedPrice = discount
+              ? Math.round(item.price * (1 - discount.porcentaje / 100) * 100) / 100
+              : null;
 
             return (
               <View style={styles.col}>
@@ -241,10 +278,23 @@ export default function DishesList({ idLocal, cart, onCartUpdate }: Props) {
                           {item.name.charAt(0).toUpperCase()}
                         </Text>
                       )}
+                      {discount && (
+                        <View style={styles.discountBadge}>
+                          <TagIcon size={11} color="#fff" />
+                          <Text style={styles.discountBadgeText}>-{discount.porcentaje}%</Text>
+                        </View>
+                      )}
                     </View>
                     <View style={styles.info}>
                       <Text style={styles.nombre} numberOfLines={2}>{item.name}</Text>
-                      <Text style={styles.precio}>${item.price}</Text>
+                      {discountedPrice != null ? (
+                        <View style={styles.priceRow}>
+                          <Text style={styles.precio}>${discountedPrice}</Text>
+                          <Text style={styles.originalPrice}>${item.price}</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.precio}>${item.price}</Text>
+                      )}
                     </View>
                   </TouchableOpacity>
 
@@ -340,13 +390,29 @@ const styles = StyleSheet.create({
 
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: Brand.gray200, overflow: "hidden" },
 
-  imgWrapper: { backgroundColor: "#FFF7ED", height: 130, justifyContent: "center", alignItems: "center" },
+  imgWrapper: { backgroundColor: "#FFF7ED", height: 130, justifyContent: "center", alignItems: "center", position: "relative" },
   img: { width: "100%", height: "100%" },
   imgPlaceholderText: { fontSize: 40, fontWeight: "900", color: Brand.primary },
+
+  discountBadge: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Brand.primary,
+    borderRadius: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  discountBadgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
 
   info: { padding: 10, gap: 4 },
   nombre: { fontSize: 13, fontWeight: "700", color: Brand.black },
   precio: { fontSize: 14, fontWeight: "700", color: Brand.primary },
+  priceRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  originalPrice: { fontSize: 12, color: Brand.gray400, textDecorationLine: "line-through" },
 
   cartControls: { paddingHorizontal: 10, paddingBottom: 10 },
   addBtn: {
