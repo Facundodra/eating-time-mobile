@@ -406,6 +406,21 @@ export async function resolvePaymentStatus(
   return 'pending';
 }
 
+// ── Cuenta ─────────────────────────────────────────────────────────────────────
+
+export async function eliminarCuenta(): Promise<void> {
+  const clienteId = await requireClienteId();
+  try {
+    await apiClient.delete(`/api/clientes/${clienteId}/cuenta`);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al eliminar la cuenta';
+      throw new Error(msg);
+    }
+    throw new Error('No se pudo eliminar la cuenta.');
+  }
+}
+
 // ── Calificaciones ─────────────────────────────────────────────────────────────
 export async function getLocalRatings(restaurantId: number): Promise<LocalRating[]> {
     try {
