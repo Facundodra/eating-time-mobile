@@ -11,7 +11,6 @@ import {
 import {
   ClockIcon,
   HandThumbUpIcon,
-  InboxIcon,
   LockClosedIcon,
   MapPinIcon,
   TrashIcon,
@@ -21,7 +20,6 @@ import {
 import ProfileAvatar from '@/components/shared/widgets/profile-avatar';
 import { Brand } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
-import { usePendingOrdersCount } from '@/hooks/use-pending-orders-count';
 import { usePendingRatingsCount } from '@/hooks/use-pending-ratings-count';
 
 import AccountMenuRow from './account/account-menu-row';
@@ -29,7 +27,6 @@ import AccountMenuRow from './account/account-menu-row';
 export default function AccountPage() {
   const { user, logout } = useAuth();
   const pendingRatingsCount = usePendingRatingsCount();
-  const pendingOrdersCount = usePendingOrdersCount();
   const [loggingOut, setLoggingOut] = useState(false);
 
   if (!user) return null;
@@ -66,33 +63,6 @@ export default function AccountPage() {
         </View>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.pendingOrdersCard}
-        onPress={() => router.push('/cliente/pedidos-pendientes')}
-        activeOpacity={0.85}
-      >
-        <View style={styles.pendingOrdersIcon}>
-          <InboxIcon size={22} color={Brand.primary} />
-        </View>
-        <View style={styles.pendingOrdersText}>
-          <View style={styles.pendingOrdersTitleRow}>
-            <Text style={styles.pendingOrdersTitle}>Pedidos en curso</Text>
-            {pendingOrdersCount > 0 ? (
-              <View style={styles.pendingOrdersBadge}>
-                <Text style={styles.pendingOrdersBadgeText}>
-                  {pendingOrdersCount > 9 ? '9+' : pendingOrdersCount}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-          <Text style={styles.pendingOrdersSubtitle}>
-            {pendingOrdersCount > 0
-              ? `${pendingOrdersCount} ${pendingOrdersCount === 1 ? 'pedido esperando' : 'pedidos esperando'} confirmación del local.`
-              : 'Pedidos pagados que aún esperan confirmación del local.'}
-          </Text>
-        </View>
-      </TouchableOpacity>
-
       <View style={styles.menuCard}>
         <Text style={styles.sectionLabel}>Cuenta</Text>
         <AccountMenuRow
@@ -119,17 +89,10 @@ export default function AccountPage() {
       <View style={styles.menuCard}>
         <Text style={styles.sectionLabel}>Pedidos</Text>
         <AccountMenuRow
-          title="Pedidos en curso"
-          description="Cancelá pedidos que aún no confirmó el local."
-          icon={InboxIcon}
-          badge={pendingOrdersCount}
-          onPress={() => router.push('/cliente/pedidos-pendientes')}
-        />
-        <AccountMenuRow
           title="Historial de pedidos"
           description="Consultá tus pedidos anteriores y su estado."
           icon={ClockIcon}
-          onPress={() => router.push('/(tabs)/mis-pedidos')}
+          onPress={() => router.push('/cliente/historial-pedidos')}
         />
         <AccountMenuRow
           title="Calificación de pedidos"
@@ -219,57 +182,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: Brand.primary,
-  },
-  pendingOrdersCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    backgroundColor: '#FFF7ED',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    padding: 16,
-  },
-  pendingOrdersIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#FFEDD5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pendingOrdersText: {
-    flex: 1,
-  },
-  pendingOrdersTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  pendingOrdersTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#C2410C',
-  },
-  pendingOrdersBadge: {
-    backgroundColor: Brand.primary,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pendingOrdersBadgeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  pendingOrdersSubtitle: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#9A3412',
-    lineHeight: 17,
   },
   menuCard: {
     backgroundColor: '#fff',

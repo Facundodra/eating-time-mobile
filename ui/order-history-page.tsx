@@ -6,9 +6,10 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { ReceiptPercentIcon } from 'react-native-heroicons/outline';
+import { ChevronLeftIcon, ReceiptPercentIcon } from 'react-native-heroicons/outline';
 
 import { Brand } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
@@ -246,6 +247,10 @@ export default function OrderHistoryPage() {
 
   const listHeader = (
     <View style={styles.headerBlock}>
+      <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
+        <ChevronLeftIcon size={20} color={Brand.gray600} />
+        <Text style={styles.backText}>Volver</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>Historial de pedidos</Text>
       <Text style={styles.subtitle}>Consultá tus pedidos anteriores.</Text>
 
@@ -390,6 +395,17 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 8,
     gap: 12,
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: -4,
+  },
+  backText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Brand.gray600,
   },
   title: {
     fontSize: 22,

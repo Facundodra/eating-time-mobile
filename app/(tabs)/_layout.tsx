@@ -9,12 +9,9 @@ import { Colors } from '@/constants/theme';
 import { useCartCount } from '@/hooks/use-cart-count';
 import { useAuth } from '@/hooks/use-auth';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { usePendingRatingsCount } from '@/hooks/use-pending-ratings-count';
-
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const cartCount = useCartCount();
-  const pendingRatingsCount = usePendingRatingsCount();
   const { user, isLoading } = useAuth();
 
   useEffect(() => {
@@ -47,13 +44,9 @@ export default function TabLayout() {
         <Tabs.Screen
           name="mis-pedidos"
           options={{
-            title: 'Mis pedidos',
+            title: 'Pedidos en curso',
             tabBarButton: HapticTab,
             tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
-            tabBarBadge: pendingRatingsCount > 0
-              ? (pendingRatingsCount > 9 ? '9+' : pendingRatingsCount)
-              : undefined,
-            tabBarBadgeStyle: { backgroundColor: '#0EA5E9', fontSize: 10 },
           }}
         />
         <Tabs.Screen
@@ -102,6 +95,10 @@ export default function TabLayout() {
         />
         <Tabs.Screen
           name="cliente/pedidos-pendientes"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="cliente/historial-pedidos"
           options={{ href: null }}
         />
         <Tabs.Screen
