@@ -8,6 +8,7 @@ import type {
     DeliveryPoint,
     DeliveryPointCredentials,
     Discount,
+    DishCategory,
     LocalRating,
     Order,
     OrderHistoryStatus,
@@ -177,7 +178,15 @@ interface PlatoDtoFromApi {
     disponible: boolean;
     creacion: string;
     localId: number;
+    localNombre?: string | null;
     categoriaIds: number[] | null;
+}
+
+interface DishPageResponse {
+    content: PlatoDtoFromApi[];
+    totalPages: number;
+    totalElements: number;
+    number: number;
 }
 
 function mapPlatoToClientDish(plato: PlatoDtoFromApi): ClientDish {
@@ -189,6 +198,7 @@ function mapPlatoToClientDish(plato: PlatoDtoFromApi): ClientDish {
         status: plato.disponible ? "available" : "unavailable",
         createdAt: plato.creacion,
         localId: plato.localId,
+        localName: plato.localNombre ?? undefined,
         categories: plato.categoriaIds ?? [],
     };
 }
@@ -196,34 +206,70 @@ function mapPlatoToClientDish(plato: PlatoDtoFromApi): ClientDish {
 
 export type DishFilter = {
     idLocal?: number;
+    nombre?: string;
+    categorias?: string[];
     precioMin?: number;
     precioMax?: number;
     conDescuento?: boolean;
-    orden?: "precio";
+    orden?: "precio" | "popularidad" | "nombre";
     sentido?: "asc" | "desc";
     pagina?: number;
     tamano?: number;
 };
 
-export async function getDishes(filter?: DishFilter): Promise<ClientDish[]>{
+export type DishPageResult = {
+    dishes: ClientDish[];
+    totalPages: number;
+    totalElements: number;
+    page: number;
+};
+
+function normalizeDishPageResponse(data: unknown, requestedPage = 0): DishPageResult {
+    if (Array.isArray(data)) {
+        return {
+            dishes: data.map((item) => mapPlatoToClientDish(item as PlatoDtoFromApi)),
+            totalPages: 1,
+            totalElements: data.length,
+            page: requestedPage,
+        };
+    }
+
+    if (data && typeof data === 'object') {
+        const page = data as Partial<DishPageResponse>;
+        const content = Array.isArray(page.content) ? page.content : [];
+        return {
+            dishes: content.map(mapPlatoToClientDish),
+            totalPages: page.totalPages ?? 1,
+            totalElements: page.totalElements ?? content.length,
+            page: page.number ?? requestedPage,
+        };
+    }
+
+    return { dishes: [], totalPages: 0, totalElements: 0, page: requestedPage };
+}
+
+export async function getDishes(filter?: DishFilter): Promise<DishPageResult>{
     await requireClienteId();
 
+    const requestedPage = filter?.pagina ?? 0;
     const params = new URLSearchParams();
     if (filter?.idLocal != null)    params.set("idLocal",      String(filter.idLocal));
+    if (filter?.nombre)             params.set("nombre",       filter.nombre);
+    if (filter?.categorias?.length) params.set("categorias",   filter.categorias.join(","));
     if (filter?.precioMin != null)  params.set("precioMin",    String(filter.precioMin));
     if (filter?.precioMax != null)  params.set("precioMax",    String(filter.precioMax));
     if (filter?.conDescuento)       params.set("conDescuento", "true");
     if (filter?.orden)              params.set("orden",        filter.orden);
     if (filter?.sentido)            params.set("sentido",      filter.sentido);
-    if (filter?.pagina != null)     params.set("pagina",       String(filter.pagina));
-    if (filter?.tamano != null)     params.set("tamano",       String(filter.tamano));
+    params.set("pagina", String(requestedPage));
+    params.set("tamano", String(filter?.tamano ?? 20));
 
     const query = params.toString();
-    const url = `/api/locales/platos${query ? `?${query}` : ""}`;
+    const url = `/api/locales/platos?${query}`;
 
     try{
-        const response = await apiClient.get<PlatoDtoFromApi[]>(url);
-        return response.data.map(mapPlatoToClientDish);
+        const response = await apiClient.get<DishPageResponse | PlatoDtoFromApi[]>(url);
+        return normalizeDishPageResponse(response.data, requestedPage);
     } catch (error) {
         if (axios.isAxiosError(error)) {
             const data = error.response?.data;
@@ -231,6 +277,48 @@ export async function getDishes(filter?: DishFilter): Promise<ClientDish[]>{
             throw new Error(message);
         }
         throw new Error("No se pudieron cargar los platos.");
+    }
+}
+
+interface CategoriaDtoFromApi {
+    id: number;
+    nombre: string;
+    urlFoto: string | null;
+}
+
+export async function getDishCategories(): Promise<DishCategory[]> {
+    try {
+        const { data } = await apiClient.get<CategoriaDtoFromApi[]>('/api/categorias');
+        return data.map((c) => ({
+            id: c.id,
+            name: c.nombre,
+            imageUrl: c.urlFoto,
+        }));
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const data = error.response?.data;
+            const message = data?.error ?? data?.message ?? `Error al obtener categorías (${error.response?.status})`;
+            throw new Error(message);
+        }
+        throw new Error('No se pudieron cargar las categorías.');
+    }
+}
+
+export async function getOrderAgainDishes(limit = 8): Promise<ClientDish[]> {
+    await requireClienteId();
+
+    try {
+        const { data } = await apiClient.get<PlatoDtoFromApi[]>(
+            `/api/locales/platos/pedir-nuevamente?limite=${limit}`,
+        );
+        return data.map(mapPlatoToClientDish);
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            const data = error.response?.data;
+            const message = data?.error ?? data?.message ?? `Error al obtener platos (${error.response?.status})`;
+            throw new Error(message);
+        }
+        throw new Error('No se pudieron cargar los platos pedidos anteriormente.');
     }
 }
 
@@ -268,8 +356,8 @@ export async function getDishDiscount(dishId: number): Promise<Discount | null> 
 }
 
 export async function getDiscountedDishIds(idLocal?: number): Promise<Set<number>> {
-    const dishes = await getDishes({ idLocal, conDescuento: true, tamano: 100 });
-    return new Set(dishes.map((dish) => Number(dish.id)));
+    const { dishes } = await getDishes({ idLocal, conDescuento: true, tamano: 200, pagina: 0 });
+    return new Set(dishes.map((dish: ClientDish) => Number(dish.id)));
 }
 
 

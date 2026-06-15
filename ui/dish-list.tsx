@@ -20,13 +20,17 @@ import { getDishDiscount, getDishes, getDiscountedDishIds, updateCartItem, type 
 
 const PAGE_SIZE = 20;
 
-type OrdenValue = "" | "precio-asc" | "precio-desc";
+type OrdenValue = "" | "precio-asc" | "precio-desc" | "nombre-asc" | "nombre-desc" | "popularidad-desc" | "popularidad-asc";
 type Filters = Omit<DishFilter, "pagina" | "tamano">;
 
 const ordenLabels: Record<OrdenValue, string> = {
   "": "Por defecto",
   "precio-asc": "Precio: menor a mayor",
   "precio-desc": "Precio: mayor a menor",
+  "nombre-asc": "Nombre: A-Z",
+  "nombre-desc": "Nombre: Z-A",
+  "popularidad-desc": "Más populares",
+  "popularidad-asc": "Menos populares",
 };
 
 function DishSkeleton() {
@@ -106,10 +110,10 @@ export default function DishesList({ idLocal, cart, onCartUpdate }: Props) {
     else setLoadingMore(true);
     setError(null);
 
-    getDishes({ ...filters, idLocal, pagina: page, tamano: PAGE_SIZE })
+    getDishes({ ...filters, idLocal, pagina: page - 1, tamano: PAGE_SIZE })
       .then((data) => {
-        setDishes((prev) => (isNewSearch ? data : [...prev, ...data]));
-        setHasMore(data.length === PAGE_SIZE);
+        setDishes((prev) => (isNewSearch ? data.dishes : [...prev, ...data.dishes]));
+        setHasMore(data.page + 1 < data.totalPages);
       })
       .catch((err) =>
         setError(err instanceof Error ? err.message : "Error al cargar"),
@@ -129,7 +133,7 @@ export default function DishesList({ idLocal, cart, onCartUpdate }: Props) {
     if (val === "") {
       updateFilters({ orden: undefined, sentido: undefined });
     } else {
-      const [orden, sentido] = val.split("-") as ["precio", "asc" | "desc"];
+      const [orden, sentido] = val.split("-") as [NonNullable<DishFilter["orden"]>, "asc" | "desc"];
       updateFilters({ orden, sentido });
     }
   }
@@ -147,9 +151,9 @@ export default function DishesList({ idLocal, cart, onCartUpdate }: Props) {
     });
   }
 
-  const ordenValue: OrdenValue = filters.orden
+  const ordenValue = (filters.orden
     ? `${filters.orden}-${filters.sentido ?? "asc"}`
-    : "";
+    : "") as OrdenValue;
 
   function getCartQty(dishId: string): number {
     if (!cart) return 0;
@@ -287,6 +291,9 @@ export default function DishesList({ idLocal, cart, onCartUpdate }: Props) {
                     </View>
                     <View style={styles.info}>
                       <Text style={styles.nombre} numberOfLines={2}>{item.name}</Text>
+                      {item.localName ? (
+                        <Text style={styles.localName} numberOfLines={1}>{item.localName}</Text>
+                      ) : null}
                       {discountedPrice != null ? (
                         <View style={styles.priceRow}>
                           <Text style={styles.precio}>${discountedPrice}</Text>
@@ -344,20 +351,14 @@ export default function DishesList({ idLocal, cart, onCartUpdate }: Props) {
               </View>
             );
           }}
+          onEndReached={() => {
+            if (hasMore && !loadingMore) setPage((p) => p + 1);
+          }}
+          onEndReachedThreshold={0.4}
           ListFooterComponent={
-            hasMore ? (
+            loadingMore ? (
               <View style={styles.loadMoreWrapper}>
-                <TouchableOpacity
-                  onPress={() => setPage((p) => p + 1)}
-                  disabled={loadingMore}
-                  style={[styles.loadMoreBtn, loadingMore && styles.loadMoreBtnDisabled]}
-                >
-                  {loadingMore ? (
-                    <ActivityIndicator size="small" color={Brand.gray600} />
-                  ) : (
-                    <Text style={styles.loadMoreText}>Cargar más</Text>
-                  )}
-                </TouchableOpacity>
+                <ActivityIndicator size="small" color={Brand.primary} />
               </View>
             ) : null
           }
@@ -410,6 +411,7 @@ const styles = StyleSheet.create({
 
   info: { padding: 10, gap: 4 },
   nombre: { fontSize: 13, fontWeight: "700", color: Brand.black },
+  localName: { fontSize: 11, color: Brand.gray400 },
   precio: { fontSize: 14, fontWeight: "700", color: Brand.primary },
   priceRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   originalPrice: { fontSize: 12, color: Brand.gray400, textDecorationLine: "line-through" },

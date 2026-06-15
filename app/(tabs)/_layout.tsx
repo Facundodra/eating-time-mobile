@@ -1,16 +1,16 @@
 import { router, Tabs } from 'expo-router';
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Header from '@/components/shared/header';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
+import { Brand, Colors } from '@/constants/theme';
 import { useCartCount } from '@/hooks/use-cart-count';
 import { useAuth } from '@/hooks/use-auth';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
   const cartCount = useCartCount();
   const { user, isLoading } = useAuth();
 
@@ -25,11 +25,33 @@ export default function TabLayout() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: Brand.gray100 }}>
       <Header cartCount={cartCount} />
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+          tabBarActiveTintColor: Colors.light.tint,
+          tabBarInactiveTintColor: Colors.light.tabIconDefault,
+          tabBarStyle: {
+            backgroundColor: '#FFFFFF',
+            borderTopColor: Brand.gray200,
+            borderTopWidth: 1,
+            height: 56 + insets.bottom,
+            paddingBottom: insets.bottom,
+            paddingTop: 6,
+            ...Platform.select({
+              android: { elevation: 8 },
+              ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 4,
+              },
+            }),
+          },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: '600',
+          },
           headerShown: false,
         }}
       >
@@ -56,6 +78,14 @@ export default function TabLayout() {
             tabBarButton: HapticTab,
             tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
           }}
+        />
+        <Tabs.Screen
+          name="explorar/restaurantes"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="explorar/platos"
+          options={{ href: null }}
         />
         <Tabs.Screen
           name="carrito"
