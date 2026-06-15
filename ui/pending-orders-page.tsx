@@ -35,7 +35,11 @@ function CardSkeleton() {
   );
 }
 
-export default function PendingOrdersPage() {
+type Props = {
+  embedded?: boolean;
+};
+
+export default function PendingOrdersPage({ embedded = false }: Props) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [restaurantNames, setRestaurantNames] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
@@ -151,10 +155,12 @@ export default function PendingOrdersPage() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
-          <ChevronLeftIcon size={20} color={Brand.gray600} />
-          <Text style={styles.backText}>Volver</Text>
-        </TouchableOpacity>
+        {!embedded ? (
+          <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
+            <ChevronLeftIcon size={20} color={Brand.gray600} />
+            <Text style={styles.backText}>Volver</Text>
+          </TouchableOpacity>
+        ) : null}
 
         <Text style={styles.title}>Pedidos en curso</Text>
         <Text style={styles.subtitle}>

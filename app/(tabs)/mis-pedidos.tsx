@@ -1,5 +1,5 @@
-import OrderHistoryPage from '@/ui/order-history-page';
+import PendingOrdersPage from '@/ui/pending-orders-page';
 
-export default function MisPedidosScreen() {
-  return <OrderHistoryPage />;
+export default function PedidosEnCursoTabScreen() {
+  return <PendingOrdersPage embedded />;
 }
