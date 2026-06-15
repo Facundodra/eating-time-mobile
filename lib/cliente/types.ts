@@ -169,3 +169,17 @@ export type Order = {
   calificacionLocal: OrderRating | null;
   hasLocalRating: boolean;
 };
+
+export type OrderClaimStatus = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
+
+export type OrderClaim = {
+  id: number;
+  pedidoId: number;
+  descripcion: string;
+  nota: string | null;
+  estado: OrderClaimStatus;
+  creacion: string;
+  localId?: number;
+  localNombre?: string | null;
+  pedidoTotal?: number | null;
+};

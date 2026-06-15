@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,6 +13,7 @@ import { ChevronLeftIcon, ReceiptPercentIcon } from 'react-native-heroicons/outl
 
 import { Brand } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { isClaimEligible } from '@/lib/cliente/claim-utils';
 import { notifyOrderRatingRefresh } from '@/lib/cliente/order-rating-refresh';
 import {
   ORDER_PAGE_SIZE,
@@ -21,7 +22,8 @@ import {
   toStartOfDay,
   type SortKey,
 } from '@/lib/cliente/order-utils';
-import type { Order, OrderRating } from '@/lib/cliente/types';
+import type { Order, OrderClaim, OrderRating } from '@/lib/cliente/types';
+import { loadOrderClaimsByOrderId } from '@/services/cliente/claim-service';
 import {
   getOrderHistory,
   getOrderHistoryRestaurants,
@@ -34,6 +36,7 @@ import OrderDetailModal from './orders/order-detail-modal';
 import OrderHistoryCard from './orders/order-history-card';
 import OrderHistoryFilters from './orders/order-history-filters';
 import OrderRatingModal from './orders/order-rating-modal';
+import ViewClaimModal from './orders/view-claim-modal';
 
 function CardSkeleton() {
   return (
@@ -60,6 +63,8 @@ function isOrderRated(order: Order) {
 
 export default function OrderHistoryPage() {
   const { user, isLoading: authLoading } = useAuth();
+  const { reclamoEnviado } = useLocalSearchParams<{ reclamoEnviado?: string }>();
+  const showClaimSuccessBanner = reclamoEnviado === '1';
   const redirectStarted = useRef(false);
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -83,6 +88,10 @@ export default function OrderHistoryPage() {
   const [selectedRatingOrder, setSelectedRatingOrder] = useState<Order | null>(null);
   const [loadingRatingOrderId, setLoadingRatingOrderId] = useState<number | null>(null);
   const [ratingLoadError, setRatingLoadError] = useState<string | null>(null);
+
+  const [orderClaims, setOrderClaims] = useState<Record<number, OrderClaim>>({});
+  const [claimsLoading, setClaimsLoading] = useState(false);
+  const [selectedClaimOrder, setSelectedClaimOrder] = useState<Order | null>(null);
 
   const hasNoOrdersAtAll = !restaurantsLoading && restaurants.length === 0;
   const hasMore = page + 1 < totalPages;
@@ -159,6 +168,36 @@ export default function OrderHistoryPage() {
     if (!user || restaurantsLoading) return;
     void loadPage(0, 'initial');
   }, [user, restaurantsLoading, hasNoOrdersAtAll, appliedFilter, sort, loadPage]);
+
+  useEffect(() => {
+    const eligibleOrderIds = orders
+      .filter((order) => isClaimEligible(order.estado))
+      .map((order) => order.id);
+
+    if (eligibleOrderIds.length === 0) {
+      setOrderClaims({});
+      setClaimsLoading(false);
+      return;
+    }
+
+    let ignore = false;
+    setClaimsLoading(true);
+
+    loadOrderClaimsByOrderId(eligibleOrderIds)
+      .then((claims) => {
+        if (!ignore) setOrderClaims(claims);
+      })
+      .catch(() => {
+        if (!ignore) setOrderClaims({});
+      })
+      .finally(() => {
+        if (!ignore) setClaimsLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [orders]);
 
   function applyFilters() {
     const next: OrderHistoryFilter = {};
@@ -254,6 +293,14 @@ export default function OrderHistoryPage() {
       <Text style={styles.title}>Historial de pedidos</Text>
       <Text style={styles.subtitle}>Consultá tus pedidos anteriores.</Text>
 
+      {showClaimSuccessBanner ? (
+        <View style={styles.successBanner}>
+          <Text style={styles.successBannerText}>
+            Tu reclamo fue enviado correctamente. El local lo revisará a la brevedad.
+          </Text>
+        </View>
+      ) : null}
+
       <OrderHistoryFilters
         sort={sort}
         localId={localId}
@@ -309,8 +356,18 @@ export default function OrderHistoryPage() {
             restaurantName={getRestaurantName(item.restaurantId)}
             loadingRating={loadingRatingOrderId === item.id}
             isRated={isOrderRated(item)}
+            claimEligible={isClaimEligible(item.estado)}
+            claimsLoading={claimsLoading}
+            hasClaim={Boolean(orderClaims[item.id])}
             onOpenDetail={() => setSelectedDetailOrder(item)}
             onOpenRating={() => void handleOpenRating(item)}
+            onViewClaim={() => setSelectedClaimOrder(item)}
+            onStartClaim={() =>
+              router.push({
+                pathname: '/cliente/iniciar-reclamo/[pedidoId]',
+                params: { pedidoId: String(item.id) },
+              })
+            }
           />
         )}
         ListEmptyComponent={
@@ -358,6 +415,15 @@ export default function OrderHistoryPage() {
             handleRatingSaved(selectedRatingOrder.id, rating);
           }
         }}
+      />
+
+      <ViewClaimModal
+        visible={selectedClaimOrder != null && Boolean(orderClaims[selectedClaimOrder.id])}
+        claim={selectedClaimOrder ? orderClaims[selectedClaimOrder.id] ?? null : null}
+        restaurantName={
+          selectedClaimOrder ? getRestaurantName(selectedClaimOrder.restaurantId) : undefined
+        }
+        onClose={() => setSelectedClaimOrder(null)}
       />
     </View>
   );
@@ -416,6 +482,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Brand.gray400,
     marginTop: -6,
+  },
+  successBanner: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 10,
+    padding: 12,
+  },
+  successBannerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#047857',
   },
   warningBanner: {
     backgroundColor: '#FFFBEB',

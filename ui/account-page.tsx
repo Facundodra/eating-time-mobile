@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import {
+  ChatBubbleLeftRightIcon,
   ClockIcon,
   HandThumbUpIcon,
   LockClosedIcon,
@@ -20,6 +21,7 @@ import {
 import ProfileAvatar from '@/components/shared/widgets/profile-avatar';
 import { Brand } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { usePendingClaimsCount } from '@/hooks/use-pending-claims-count';
 import { usePendingRatingsCount } from '@/hooks/use-pending-ratings-count';
 
 import AccountMenuRow from './account/account-menu-row';
@@ -27,6 +29,7 @@ import AccountMenuRow from './account/account-menu-row';
 export default function AccountPage() {
   const { user, logout } = useAuth();
   const pendingRatingsCount = usePendingRatingsCount();
+  const pendingClaimsCount = usePendingClaimsCount();
   const [loggingOut, setLoggingOut] = useState(false);
 
   if (!user) return null;
@@ -100,6 +103,18 @@ export default function AccountPage() {
           icon={HandThumbUpIcon}
           badge={pendingRatingsCount}
           onPress={() => router.push('/cliente/calificaciones-pedidos')}
+          showDivider={false}
+        />
+      </View>
+
+      <View style={styles.menuCard}>
+        <Text style={styles.sectionLabel}>Reclamos</Text>
+        <AccountMenuRow
+          title="Seguimiento de reclamos"
+          description="Consultá el estado de tus reclamos y las respuestas del local."
+          icon={ChatBubbleLeftRightIcon}
+          badge={pendingClaimsCount}
+          onPress={() => router.push('/cliente/seguimiento-reclamos')}
           showDivider={false}
         />
       </View>

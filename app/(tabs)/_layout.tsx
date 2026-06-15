@@ -109,6 +109,14 @@ export default function TabLayout() {
           name="cliente/dar-de-baja-cuenta"
           options={{ href: null }}
         />
+        <Tabs.Screen
+          name="cliente/seguimiento-reclamos"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="cliente/iniciar-reclamo/[pedidoId]"
+          options={{ href: null }}
+        />
       </Tabs>
     </View>
   );

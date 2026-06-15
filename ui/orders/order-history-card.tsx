@@ -11,8 +11,13 @@ type Props = {
   restaurantName: string;
   loadingRating: boolean;
   isRated: boolean;
+  claimEligible: boolean;
+  claimsLoading: boolean;
+  hasClaim: boolean;
   onOpenDetail: () => void;
   onOpenRating: () => void;
+  onViewClaim: () => void;
+  onStartClaim: () => void;
 };
 
 export default function OrderHistoryCard({
@@ -20,8 +25,13 @@ export default function OrderHistoryCard({
   restaurantName,
   loadingRating,
   isRated,
+  claimEligible,
+  claimsLoading,
+  hasClaim,
   onOpenDetail,
   onOpenRating,
+  onViewClaim,
+  onStartClaim,
 }: Props) {
   return (
     <View style={styles.card}>
@@ -57,6 +67,22 @@ export default function OrderHistoryCard({
           <Text style={styles.actionBtnText}>Ver detalles</Text>
         </TouchableOpacity>
       </View>
+
+      {claimEligible ? (
+        <View style={styles.claimRow}>
+          {claimsLoading ? (
+            <Text style={styles.claimLoading}>...</Text>
+          ) : hasClaim ? (
+            <TouchableOpacity style={styles.viewClaimBtn} onPress={onViewClaim}>
+              <Text style={styles.viewClaimBtnText}>Ver reclamo</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.actionBtn} onPress={onStartClaim}>
+              <Text style={styles.actionBtnText}>Iniciar reclamo</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : null}
 
       <Text style={styles.orderId}>
         Pedido <Text style={styles.orderIdBold}>#{order.id}</Text>
@@ -110,6 +136,27 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: 8,
+  },
+  claimRow: {
+    marginTop: 8,
+  },
+  claimLoading: {
+    fontSize: 12,
+    color: Brand.gray400,
+    textAlign: 'right',
+  },
+  viewClaimBtn: {
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    borderRadius: 8,
+    paddingVertical: 9,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  viewClaimBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4338CA',
   },
   actionBtn: {
     flex: 1,
