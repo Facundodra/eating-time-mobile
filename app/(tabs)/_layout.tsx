@@ -1,6 +1,6 @@
 import { router, Tabs } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Header from '@/components/shared/header';
@@ -9,9 +9,12 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Brand, Colors } from '@/constants/theme';
 import { useCartCount } from '@/hooks/use-cart-count';
 import { useAuth } from '@/hooks/use-auth';
+import { usePendingOrdersCount } from '@/hooks/use-pending-orders-count';
+
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const cartCount = useCartCount();
+  const pendingOrdersCount = usePendingOrdersCount();
   const { user, isLoading } = useAuth();
 
   useEffect(() => {
@@ -68,7 +71,18 @@ export default function TabLayout() {
           options={{
             title: 'Pedidos en curso',
             tabBarButton: HapticTab,
-            tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
+            tabBarIcon: ({ color }) => (
+              <View style={styles.tabIconWrap}>
+                <IconSymbol size={28} name="list.bullet" color={color} />
+                {pendingOrdersCount > 0 ? (
+                  <View style={styles.tabBadge}>
+                    <Text style={styles.tabBadgeText}>
+                      {pendingOrdersCount > 9 ? '9+' : pendingOrdersCount}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ),
           }}
         />
         <Tabs.Screen
@@ -151,3 +165,28 @@ export default function TabLayout() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  tabIconWrap: {
+    position: 'relative',
+    width: 28,
+    height: 28,
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -10,
+    backgroundColor: Brand.primary,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  tabBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+});
