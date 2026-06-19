@@ -177,6 +177,20 @@ export type Order = {
   hasLocalRating: boolean;
 };
 
+export type VoucherStatus = 'DISPONIBLE' | 'USADO' | 'VENCIDO';
+
+export type Voucher = {
+  id: number;
+  codigo: string;
+  descripcion: string;
+  valor: number;
+  estado: VoucherStatus;
+  creacion: string;
+  vencimiento: string;
+  localId: number;
+  localNombre: string;
+};
+
 export type OrderClaimStatus = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
 
 export type OrderClaim = {

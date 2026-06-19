@@ -23,7 +23,8 @@ import {
 
 import { Brand } from '@/constants/theme';
 import { getActiveCartItems } from '@/lib/cliente/cart-utils';
-import type { Cart, DeliveryPoint, OrderRequest, Restaurant } from '@/lib/cliente/types';
+import { formatOrderPrice } from '@/lib/cliente/order-utils';
+import type { Cart, DeliveryPoint, OrderRequest, Restaurant, Voucher } from '@/lib/cliente/types';
 import { notifyCartRefresh } from '@/lib/cliente/cart-refresh';
 import {
   deleteCart,
@@ -33,16 +34,20 @@ import {
   placeOrder,
   updateCartItem,
 } from '@/services/cliente/cliente-service';
+import { getVouchers, validateCoupon } from '@/services/cliente/wallet-service';
 
 type AddressMode = 'saved' | 'manual';
+type AppliedDiscount = { type: 'cupon' | 'voucher'; label: string; amount: number };
 
 function CheckoutSection({
   restaurantId,
   pedidoId,
+  total,
   onSuccess,
 }: {
   restaurantId: number;
   pedidoId: number;
+  total: number;
   onSuccess: () => void;
 }) {
   const [deliveryPoints, setDeliveryPoints] = useState<DeliveryPoint[]>([]);
@@ -57,6 +62,12 @@ function CheckoutSection({
   const [guardarEnCuenta, setGuardarEnCuenta] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [selectedVoucherId, setSelectedVoucherId] = useState<number | null>(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -83,6 +94,43 @@ function CheckoutSection({
 
     load();
   }, []);
+
+  useEffect(() => {
+    getVouchers().then((data) =>
+      setVouchers(data.filter((v) => v.estado === 'DISPONIBLE' && v.localId === restaurantId)),
+    );
+  }, [restaurantId]);
+
+  function removeDiscount() {
+    setAppliedDiscount(null);
+    setSelectedVoucherId(null);
+    setCouponCode('');
+    setCouponError(null);
+  }
+
+  function handleApplyCoupon() {
+    const code = couponCode.trim();
+    if (!code) return;
+    const discount = validateCoupon(code);
+    if (!discount) {
+      setCouponError('Cupón inválido.');
+      return;
+    }
+    const amount = discount.tipo === 'PORCENTAJE' ? (total * discount.valor) / 100 : discount.valor;
+    setAppliedDiscount({ type: 'cupon', label: code.toUpperCase(), amount });
+    setSelectedVoucherId(null);
+    setCouponError(null);
+  }
+
+  function handleApplyVoucher() {
+    const voucher = vouchers.find((v) => v.id === selectedVoucherId);
+    if (!voucher) return;
+    setAppliedDiscount({ type: 'voucher', label: voucher.codigo, amount: voucher.valor });
+    setCouponCode('');
+    setCouponError(null);
+  }
+
+  const finalTotal = Math.max(0, total - (appliedDiscount?.amount ?? 0));
 
   async function handleConfirm() {
     setError(null);
@@ -206,6 +254,83 @@ function CheckoutSection({
           <View style={styles.switchRow}>
             <Switch value={guardarEnCuenta} onValueChange={setGuardarEnCuenta} trackColor={{ true: Brand.primary }} />
             <Text style={styles.switchLabel}>Guardar esta dirección en mi cuenta</Text>
+          </View>
+        </View>
+      )}
+
+      <View style={styles.discountSection}>
+        <Text style={styles.checkoutTitle}>Cupón o voucher</Text>
+
+        {appliedDiscount ? (
+          <View style={styles.discountApplied}>
+            <View style={styles.discountAppliedInfo}>
+              <Text style={styles.discountAppliedLabel}>
+                {appliedDiscount.type === 'cupon' ? 'Cupón' : 'Voucher'} {appliedDiscount.label} aplicado
+              </Text>
+              <Text style={styles.discountAppliedAmount}>-{formatOrderPrice(appliedDiscount.amount)}</Text>
+            </View>
+            <TouchableOpacity onPress={removeDiscount}>
+              <Text style={styles.discountRemove}>Quitar</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <View style={styles.couponRow}>
+              <TextInput
+                style={[styles.input, styles.couponInput]}
+                placeholder="Código de cupón"
+                placeholderTextColor={Brand.gray400}
+                autoCapitalize="characters"
+                value={couponCode}
+                onChangeText={(text) => {
+                  setCouponCode(text);
+                  setCouponError(null);
+                }}
+              />
+              <TouchableOpacity
+                style={[styles.couponBtn, !couponCode.trim() && styles.confirmBtnDisabled]}
+                disabled={!couponCode.trim()}
+                onPress={handleApplyCoupon}
+              >
+                <Text style={styles.couponBtnText}>Aplicar</Text>
+              </TouchableOpacity>
+            </View>
+            {couponError ? <Text style={styles.checkoutError}>{couponError}</Text> : null}
+
+            {vouchers.length > 0 && (
+              <>
+                <Text style={styles.label}>O elegí un voucher</Text>
+                {vouchers.map((voucher) => (
+                  <TouchableOpacity
+                    key={voucher.id}
+                    style={[styles.pointCard, selectedVoucherId === voucher.id && styles.pointCardSelected]}
+                    onPress={() => setSelectedVoucherId(voucher.id)}
+                  >
+                    <Text style={styles.pointMain}>
+                      {voucher.codigo} · {formatOrderPrice(voucher.valor)}
+                    </Text>
+                    <Text style={styles.pointSub}>{voucher.descripcion}</Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={[styles.couponBtn, selectedVoucherId == null && styles.confirmBtnDisabled]}
+                  disabled={selectedVoucherId == null}
+                  onPress={handleApplyVoucher}
+                >
+                  <Text style={styles.couponBtnText}>Aplicar voucher</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </>
+        )}
+      </View>
+
+      {appliedDiscount && (
+        <View style={styles.totalPreview}>
+          <Text style={styles.totalPreviewLabel}>Total a pagar</Text>
+          <View style={styles.totalPreviewValues}>
+            <Text style={styles.totalPreviewOriginal}>${total.toFixed(2)}</Text>
+            <Text style={styles.totalPreviewFinal}>${finalTotal.toFixed(2)}</Text>
           </View>
         </View>
       )}
@@ -396,6 +521,7 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
               <CheckoutSection
                 restaurantId={restaurantId}
                 pedidoId={cart.id}
+                total={cart.total}
                 onSuccess={() => setCart(null)}
               />
             )}
@@ -509,6 +635,41 @@ const styles = StyleSheet.create({
   },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
   switchLabel: { fontSize: 13, color: Brand.gray600, flex: 1 },
+  discountSection: { gap: 8 },
+  couponRow: { flexDirection: 'row', gap: 8 },
+  couponInput: { flex: 1, marginBottom: 0 },
+  couponBtn: {
+    backgroundColor: Brand.primary,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  couponBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  discountApplied: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: 10,
+    padding: 12,
+  },
+  discountAppliedInfo: { flex: 1 },
+  discountAppliedLabel: { fontSize: 13, fontWeight: '600', color: Brand.black },
+  discountAppliedAmount: { fontSize: 14, fontWeight: '800', color: Brand.primary, marginTop: 2 },
+  discountRemove: { fontSize: 13, fontWeight: '700', color: '#DC2626' },
+  totalPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  totalPreviewLabel: { fontSize: 12, color: Brand.gray600 },
+  totalPreviewValues: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  totalPreviewOriginal: { fontSize: 13, color: Brand.gray400, textDecorationLine: 'line-through' },
+  totalPreviewFinal: { fontSize: 16, fontWeight: '800', color: Brand.primary },
   checkoutError: {
     backgroundColor: '#FEF2F2',
     color: '#DC2626',

@@ -130,6 +130,10 @@ export default function TabLayout() {
           options={{ href: null }}
         />
         <Tabs.Screen
+          name="cliente/mi-billetera"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
           name="cliente/cambiar-password"
           options={{ href: null }}
         />

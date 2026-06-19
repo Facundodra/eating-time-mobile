@@ -16,6 +16,7 @@ import {
   MapPinIcon,
   TrashIcon,
   UserCircleIcon,
+  WalletIcon,
 } from 'react-native-heroicons/outline';
 
 import ProfileAvatar from '@/components/shared/widgets/profile-avatar';
@@ -85,6 +86,12 @@ export default function AccountPage() {
           description="Actualizá tu contraseña de acceso."
           icon={LockClosedIcon}
           onPress={() => router.push('/cliente/cambiar-password')}
+        />
+        <AccountMenuRow
+          title="Mi billetera"
+          description="Consultá tus vouchers disponibles."
+          icon={WalletIcon}
+          onPress={() => router.push('/cliente/mi-billetera')}
           showDivider={false}
         />
       </View>
