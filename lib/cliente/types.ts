@@ -36,8 +36,15 @@ export type ClientDish = {
   status: DishStatus;
   createdAt: string;
   localId: number;
+  localName?: string;
   categories: number[];
 }
+
+export type DishCategory = {
+  id: number;
+  name: string;
+  imageUrl: string | null;
+};
 
 export type Discount = {
   id: number;
