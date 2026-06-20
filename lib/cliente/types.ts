@@ -108,6 +108,9 @@ export type Cart = {
   restaurantId: number;
   clienteId: number;
   cuponId: number | null;
+  cuponCodigo: string | null;
+  cuponPorcentaje: number | null;
+  voucherId: number | null;
   estado: OrderStatus;
   total: number;
   descuento: number | null;
@@ -120,6 +123,12 @@ export type Cart = {
   creacion: string;
   eliminacion: string | null;
   items: CartItem[];
+};
+
+export type AppliedCartCoupon = {
+  code: string;
+  percentage: number;
+  discountAmount: number;
 };
 
 // Calificacion de local 
@@ -175,6 +184,19 @@ export type Order = {
   items: CartItem[];
   calificacionLocal: OrderRating | null;
   hasLocalRating: boolean;
+};
+
+export type Voucher = {
+  id: string;
+  code: string;
+  description: string;
+  amount: number | null;
+  createdAt: string | null;
+  expiresAt: string | null;
+  claimId?: number | null;
+  orderId?: number | null;
+  restaurantName?: string | null;
+  status?: string | null; // "disponible" | "aplicado" (crudo del backend)
 };
 
 export type OrderClaimStatus = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
