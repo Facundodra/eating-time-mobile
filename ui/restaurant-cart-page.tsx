@@ -24,30 +24,33 @@ import {
 import { Brand } from '@/constants/theme';
 import { getActiveCartItems } from '@/lib/cliente/cart-utils';
 import { formatOrderPrice } from '@/lib/cliente/order-utils';
-import type { Cart, DeliveryPoint, OrderRequest, Restaurant, Voucher } from '@/lib/cliente/types';
+import type { AppliedCartCoupon, Cart, DeliveryPoint, OrderRequest, Restaurant, Voucher } from '@/lib/cliente/types';
 import { notifyCartRefresh } from '@/lib/cliente/cart-refresh';
 import {
+  applyCartCoupon,
+  applyCartVoucher,
   deleteCart,
   deliveryPointService,
   getCart,
   getRestaurant,
   placeOrder,
+  removeCartCoupon,
+  removeCartVoucher,
   updateCartItem,
 } from '@/services/cliente/cliente-service';
-import { getVouchers, validateCoupon } from '@/services/cliente/wallet-service';
+import { getAvailableVouchers } from '@/services/cliente/wallet-service';
 
 type AddressMode = 'saved' | 'manual';
-type AppliedDiscount = { type: 'cupon' | 'voucher'; label: string; amount: number };
 
 function CheckoutSection({
   restaurantId,
-  pedidoId,
-  total,
+  cart,
+  onCartChange,
   onSuccess,
 }: {
   restaurantId: number;
-  pedidoId: number;
-  total: number;
+  cart: Cart;
+  onCartChange: (cart: Cart) => void;
   onSuccess: () => void;
 }) {
   const [deliveryPoints, setDeliveryPoints] = useState<DeliveryPoint[]>([]);
@@ -63,11 +66,16 @@ function CheckoutSection({
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [vouchers, setVouchers] = useState<Voucher[]>([]);
-  const [selectedVoucherId, setSelectedVoucherId] = useState<number | null>(null);
+  const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([]);
+  const [loadingVouchers, setLoadingVouchers] = useState(true);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [applyingVoucherId, setApplyingVoucherId] = useState<string | null>(null);
+  const [removingVoucher, setRemovingVoucher] = useState(false);
+
   const [couponCode, setCouponCode] = useState('');
   const [couponError, setCouponError] = useState<string | null>(null);
-  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [removingCoupon, setRemovingCoupon] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -96,41 +104,83 @@ function CheckoutSection({
   }, []);
 
   useEffect(() => {
-    getVouchers().then((data) =>
-      setVouchers(data.filter((v) => v.estado === 'DISPONIBLE' && v.localId === restaurantId)),
-    );
+    setLoadingVouchers(true);
+    getAvailableVouchers(restaurantId)
+      .then(setAvailableVouchers)
+      .catch(() => setAvailableVouchers([]))
+      .finally(() => setLoadingVouchers(false));
   }, [restaurantId]);
 
-  function removeDiscount() {
-    setAppliedDiscount(null);
-    setSelectedVoucherId(null);
-    setCouponCode('');
-    setCouponError(null);
-  }
+  const activeItems = getActiveCartItems(cart);
+  const itemsSubtotal = activeItems.reduce((sum, item) => sum + item.total, 0);
+  const couponDiscount = cart.descuento ?? 0;
+  const subtotalAfterCoupon = Math.max(0, itemsSubtotal - couponDiscount);
+  const hasDiscount = cart.total < itemsSubtotal;
 
-  function handleApplyCoupon() {
+  const appliedCoupon: AppliedCartCoupon | null =
+    cart.cuponId != null && cart.cuponCodigo && cart.cuponPorcentaje != null
+      ? { code: cart.cuponCodigo, percentage: cart.cuponPorcentaje, discountAmount: couponDiscount }
+      : null;
+
+  const appliedVoucher =
+    cart.voucherId != null
+      ? availableVouchers.find((voucher) => voucher.id === String(cart.voucherId)) ?? null
+      : null;
+
+  const voucherExceedsOrder =
+    appliedVoucher?.amount != null && appliedVoucher.amount > subtotalAfterCoupon;
+
+  async function handleApplyCoupon() {
     const code = couponCode.trim();
     if (!code) return;
-    const discount = validateCoupon(code);
-    if (!discount) {
-      setCouponError('Cupón inválido.');
-      return;
+    setApplyingCoupon(true);
+    setCouponError(null);
+    try {
+      const updated = await applyCartCoupon(restaurantId, code);
+      onCartChange(updated);
+      setCouponCode('');
+    } catch (err) {
+      setCouponError(err instanceof Error ? err.message : 'No se pudo aplicar el cupón.');
+    } finally {
+      setApplyingCoupon(false);
     }
-    const amount = discount.tipo === 'PORCENTAJE' ? (total * discount.valor) / 100 : discount.valor;
-    setAppliedDiscount({ type: 'cupon', label: code.toUpperCase(), amount });
-    setSelectedVoucherId(null);
-    setCouponError(null);
   }
 
-  function handleApplyVoucher() {
-    const voucher = vouchers.find((v) => v.id === selectedVoucherId);
-    if (!voucher) return;
-    setAppliedDiscount({ type: 'voucher', label: voucher.codigo, amount: voucher.valor });
-    setCouponCode('');
+  async function handleRemoveCoupon() {
+    setRemovingCoupon(true);
     setCouponError(null);
+    try {
+      onCartChange(await removeCartCoupon(restaurantId));
+    } catch (err) {
+      setCouponError(err instanceof Error ? err.message : 'No se pudo quitar el cupón.');
+    } finally {
+      setRemovingCoupon(false);
+    }
   }
 
-  const finalTotal = Math.max(0, total - (appliedDiscount?.amount ?? 0));
+  async function handleApplyVoucher(voucher: Voucher) {
+    setApplyingVoucherId(voucher.id);
+    setVoucherError(null);
+    try {
+      onCartChange(await applyCartVoucher(restaurantId, Number(voucher.id)));
+    } catch (err) {
+      setVoucherError(err instanceof Error ? err.message : 'No se pudo aplicar el voucher.');
+    } finally {
+      setApplyingVoucherId(null);
+    }
+  }
+
+  async function handleRemoveVoucher() {
+    setRemovingVoucher(true);
+    setVoucherError(null);
+    try {
+      onCartChange(await removeCartVoucher(restaurantId));
+    } catch (err) {
+      setVoucherError(err instanceof Error ? err.message : 'No se pudo quitar el voucher.');
+    } finally {
+      setRemovingVoucher(false);
+    }
+  }
 
   async function handleConfirm() {
     setError(null);
@@ -163,13 +213,21 @@ function CheckoutSection({
       router.replace({
         pathname: '/(tabs)/pedidos/resultado',
         params: {
-          pedidoId: String(pedidoId),
+          pedidoId: String(cart.id),
           localId: String(restaurantId),
         },
       });
       await WebBrowser.openAuthSessionAsync(linkPago, 'eatingtime://');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo realizar el pedido.');
+      const message = err instanceof Error ? err.message : 'No se pudo realizar el pedido.';
+      const lower = message.toLowerCase();
+      if (lower.includes('venc')) {
+        setError('El voucher ya no es válido. Quitá el voucher aplicado e intentá realizar el pedido nuevamente.');
+      } else if (lower.includes('cupón') || lower.includes('cupon')) {
+        setError('El cupón ya no es válido. Quitá el cupón aplicado e intentá realizar el pedido nuevamente.');
+      } else {
+        setError(message);
+      }
     } finally {
       setPlacing(false);
     }
@@ -259,18 +317,22 @@ function CheckoutSection({
       )}
 
       <View style={styles.discountSection}>
-        <Text style={styles.checkoutTitle}>Cupón o voucher</Text>
+        <Text style={styles.checkoutTitle}>Cupón de descuento</Text>
 
-        {appliedDiscount ? (
+        {appliedCoupon ? (
           <View style={styles.discountApplied}>
             <View style={styles.discountAppliedInfo}>
               <Text style={styles.discountAppliedLabel}>
-                {appliedDiscount.type === 'cupon' ? 'Cupón' : 'Voucher'} {appliedDiscount.label} aplicado
+                Cupón {appliedCoupon.code} ({appliedCoupon.percentage}%)
               </Text>
-              <Text style={styles.discountAppliedAmount}>-{formatOrderPrice(appliedDiscount.amount)}</Text>
+              <Text style={styles.discountAppliedAmount}>-{formatOrderPrice(appliedCoupon.discountAmount)}</Text>
             </View>
-            <TouchableOpacity onPress={removeDiscount}>
-              <Text style={styles.discountRemove}>Quitar</Text>
+            <TouchableOpacity onPress={handleRemoveCoupon} disabled={removingCoupon}>
+              {removingCoupon ? (
+                <ActivityIndicator size="small" color="#DC2626" />
+              ) : (
+                <Text style={styles.discountRemove}>Quitar</Text>
+              )}
             </TouchableOpacity>
           </View>
         ) : (
@@ -283,54 +345,83 @@ function CheckoutSection({
                 autoCapitalize="characters"
                 value={couponCode}
                 onChangeText={(text) => {
-                  setCouponCode(text);
+                  setCouponCode(text.toUpperCase());
                   setCouponError(null);
                 }}
               />
               <TouchableOpacity
-                style={[styles.couponBtn, !couponCode.trim() && styles.confirmBtnDisabled]}
-                disabled={!couponCode.trim()}
+                style={[styles.couponBtn, (!couponCode.trim() || applyingCoupon) && styles.confirmBtnDisabled]}
+                disabled={!couponCode.trim() || applyingCoupon}
                 onPress={handleApplyCoupon}
               >
-                <Text style={styles.couponBtnText}>Aplicar</Text>
+                {applyingCoupon ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.couponBtnText}>Aplicar</Text>
+                )}
               </TouchableOpacity>
             </View>
             {couponError ? <Text style={styles.checkoutError}>{couponError}</Text> : null}
-
-            {vouchers.length > 0 && (
-              <>
-                <Text style={styles.label}>O elegí un voucher</Text>
-                {vouchers.map((voucher) => (
-                  <TouchableOpacity
-                    key={voucher.id}
-                    style={[styles.pointCard, selectedVoucherId === voucher.id && styles.pointCardSelected]}
-                    onPress={() => setSelectedVoucherId(voucher.id)}
-                  >
-                    <Text style={styles.pointMain}>
-                      {voucher.codigo} · {formatOrderPrice(voucher.valor)}
-                    </Text>
-                    <Text style={styles.pointSub}>{voucher.descripcion}</Text>
-                  </TouchableOpacity>
-                ))}
-                <TouchableOpacity
-                  style={[styles.couponBtn, selectedVoucherId == null && styles.confirmBtnDisabled]}
-                  disabled={selectedVoucherId == null}
-                  onPress={handleApplyVoucher}
-                >
-                  <Text style={styles.couponBtnText}>Aplicar voucher</Text>
-                </TouchableOpacity>
-              </>
-            )}
           </>
         )}
       </View>
 
-      {appliedDiscount && (
+      <View style={styles.discountSection}>
+        <Text style={styles.checkoutTitle}>Vouchers para este local</Text>
+
+        {loadingVouchers ? (
+          <ActivityIndicator color={Brand.primary} />
+        ) : appliedVoucher ? (
+          <View style={styles.discountApplied}>
+            <View style={styles.discountAppliedInfo}>
+              <Text style={styles.discountAppliedLabel}>Voucher {appliedVoucher.code}</Text>
+              <Text style={styles.discountAppliedAmount}>-{formatOrderPrice(appliedVoucher.amount)}</Text>
+            </View>
+            <TouchableOpacity onPress={handleRemoveVoucher} disabled={removingVoucher}>
+              {removingVoucher ? (
+                <ActivityIndicator size="small" color="#DC2626" />
+              ) : (
+                <Text style={styles.discountRemove}>Quitar</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : availableVouchers.length === 0 ? (
+          <Text style={styles.label}>No tenés vouchers disponibles para este local.</Text>
+        ) : (
+          <View style={styles.voucherList}>
+            {availableVouchers.map((voucher) => {
+              const isApplying = applyingVoucherId === voucher.id;
+              return (
+                <TouchableOpacity
+                  key={voucher.id}
+                  style={styles.pointCard}
+                  disabled={isApplying}
+                  onPress={() => handleApplyVoucher(voucher)}
+                >
+                  <View style={styles.voucherOptionRow}>
+                    <Text style={styles.pointMain}>
+                      {voucher.code} · {formatOrderPrice(voucher.amount)}
+                    </Text>
+                    {isApplying && <ActivityIndicator size="small" color={Brand.primary} />}
+                  </View>
+                  {voucher.description ? <Text style={styles.pointSub}>{voucher.description}</Text> : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+        {voucherError ? <Text style={styles.checkoutError}>{voucherError}</Text> : null}
+        {voucherExceedsOrder ? (
+          <Text style={styles.checkoutError}>El monto del voucher supera el total de tu pedido.</Text>
+        ) : null}
+      </View>
+
+      {hasDiscount && (
         <View style={styles.totalPreview}>
           <Text style={styles.totalPreviewLabel}>Total a pagar</Text>
           <View style={styles.totalPreviewValues}>
-            <Text style={styles.totalPreviewOriginal}>${total.toFixed(2)}</Text>
-            <Text style={styles.totalPreviewFinal}>${finalTotal.toFixed(2)}</Text>
+            <Text style={styles.totalPreviewOriginal}>${itemsSubtotal.toFixed(2)}</Text>
+            <Text style={styles.totalPreviewFinal}>${cart.total.toFixed(2)}</Text>
           </View>
         </View>
       )}
@@ -520,8 +611,8 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
             {checkoutOpen && (
               <CheckoutSection
                 restaurantId={restaurantId}
-                pedidoId={cart.id}
-                total={cart.total}
+                cart={cart}
+                onCartChange={setCart}
                 onSuccess={() => setCart(null)}
               />
             )}
@@ -636,6 +727,8 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
   switchLabel: { fontSize: 13, color: Brand.gray600, flex: 1 },
   discountSection: { gap: 8 },
+  voucherList: { gap: 8 },
+  voucherOptionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   couponRow: { flexDirection: 'row', gap: 8 },
   couponInput: { flex: 1, marginBottom: 0 },
   couponBtn: {

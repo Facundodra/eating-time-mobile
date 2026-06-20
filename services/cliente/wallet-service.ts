@@ -1,63 +1,102 @@
-import type { Voucher } from '@/lib/cliente/types';
+import axios from 'axios';
 
-const MOCK_VOUCHERS: Voucher[] = [
-  {
-    id: 1,
-    codigo: 'VCH-8K2N',
-    descripcion: 'Voucher por reclamo aprobado',
-    valor: 250,
-    estado: 'DISPONIBLE',
-    creacion: '2026-05-12T10:00:00',
-    vencimiento: '2027-05-12T10:00:00',
-    localId: 1,
-    localNombre: 'Pizzería Don Mario',
-  },
-  {
-    id: 2,
-    codigo: 'VCH-3PQ7',
-    descripcion: 'Voucher por reclamo aprobado',
-    valor: 120,
-    estado: 'DISPONIBLE',
-    creacion: '2026-06-01T15:30:00',
-    vencimiento: '2027-06-01T15:30:00',
-    localId: 2,
-    localNombre: 'Sushi Yama',
-  },
-  {
-    id: 3,
-    codigo: 'VCH-1A9X',
-    descripcion: 'Voucher por reclamo aprobado',
-    valor: 80,
-    estado: 'USADO',
-    creacion: '2026-02-20T09:15:00',
-    vencimiento: '2027-02-20T09:15:00',
-    localId: 1,
-    localNombre: 'Pizzería Don Mario',
-  },
-  {
-    id: 4,
-    codigo: 'VCH-5M4D',
-    descripcion: 'Voucher por reclamo aprobado',
-    valor: 150,
-    estado: 'VENCIDO',
-    creacion: '2025-01-10T12:00:00',
-    vencimiento: '2026-01-10T12:00:00',
-    localId: 3,
-    localNombre: 'Burger House',
-  },
-];
+import type { OrderClaim, Voucher } from '@/lib/cliente/types';
+import { requireClienteId } from '@/lib/cliente/require-session';
 
-export async function getVouchers(): Promise<Voucher[]> {
-  return MOCK_VOUCHERS;
-}
+import { apiClient } from '../api-client';
+import { getClientClaims } from './claim-service';
 
-type CouponDiscount = { tipo: 'PORCENTAJE' | 'MONTO'; valor: number };
-
-const MOCK_COUPONS: Record<string, CouponDiscount> = {
-  BIENVENIDO10: { tipo: 'PORCENTAJE', valor: 10 },
-  DESCUENTO5: { tipo: 'MONTO', valor: 5 },
+type VoucherApiResponse = {
+  id: number;
+  codigo: string;
+  descripcion: string | null;
+  valor: number;
+  creacion: string;
+  vencimiento: string | null;
+  reclamoId: number;
+  pedidoId: number | null;
 };
 
-export function validateCoupon(code: string): CouponDiscount | null {
-  return MOCK_COUPONS[code.trim().toUpperCase()] ?? null;
+function getWalletErrorMessage(error: unknown, fallback: string): string {
+  if (!axios.isAxiosError(error)) return fallback;
+
+  const data = error.response?.data as
+    | { error?: string; message?: string }
+    | string
+    | undefined;
+
+  if (typeof data === 'string' && data.trim()) return data;
+  if (data && typeof data === 'object') {
+    return data.error ?? data.message ?? fallback;
+  }
+  return fallback;
+}
+
+function mapVoucher(voucher: VoucherApiResponse, claim?: OrderClaim): Voucher {
+  return {
+    id: String(voucher.id),
+    code: voucher.codigo,
+    description: voucher.descripcion ?? `Compensación por reclamo #${voucher.reclamoId}`,
+    amount: voucher.valor,
+    createdAt: voucher.creacion,
+    expiresAt: voucher.vencimiento,
+    claimId: voucher.reclamoId,
+    orderId: voucher.pedidoId,
+    restaurantName: claim?.localNombre ?? null,
+    status: voucher.pedidoId == null ? 'disponible' : 'aplicado',
+  };
+}
+
+async function getApprovedClaimsById(): Promise<Map<number, OrderClaim>> {
+  const claimsById = new Map<number, OrderClaim>();
+  let page = 0;
+  let totalPages = 1;
+
+  while (page < totalPages) {
+    const result = await getClientClaims({
+      estado: 'APROBADO',
+      ordenarPor: 'fecha',
+      direccion: 'desc',
+      page,
+      size: 100,
+    });
+
+    result.claims.forEach((claim) => claimsById.set(claim.id, claim));
+    totalPages = result.totalPages;
+    page += 1;
+  }
+
+  return claimsById;
+}
+
+export async function getVouchers(): Promise<Voucher[]> {
+  const clienteId = await requireClienteId();
+
+  try {
+    const [voucherResponse, claimsById] = await Promise.all([
+      apiClient.get<VoucherApiResponse[]>(`/api/clientes/${clienteId}/vouchers`),
+      getApprovedClaimsById().catch(() => new Map<number, OrderClaim>()),
+    ]);
+
+    return voucherResponse.data.map((voucher) =>
+      mapVoucher(voucher, claimsById.get(voucher.reclamoId)),
+    );
+  } catch (error) {
+    throw new Error(getWalletErrorMessage(error, 'No se pudieron cargar tus vouchers.'));
+  }
+}
+
+export async function getAvailableVouchers(restaurantId: number): Promise<Voucher[]> {
+  const clienteId = await requireClienteId();
+
+  try {
+    const { data } = await apiClient.get<VoucherApiResponse[]>(
+      `/api/clientes/${clienteId}/local/${restaurantId}/vouchers`,
+    );
+    return data.map((voucher) => mapVoucher(voucher));
+  } catch (error) {
+    throw new Error(
+      getWalletErrorMessage(error, 'No se pudieron cargar los vouchers disponibles.'),
+    );
+  }
 }

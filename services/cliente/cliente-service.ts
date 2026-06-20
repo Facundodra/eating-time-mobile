@@ -438,6 +438,78 @@ export async function deleteCart(restaurantId: number): Promise<void> {
   }
 }
 
+// ── Cupones y vouchers del carrito ──────────────────────────────────────────────
+
+export async function applyCartCoupon(restaurantId: number, code: string): Promise<Cart> {
+  const clienteId = await requireClienteId();
+
+  try {
+    const { data } = await apiClient.patch<CartFromApi>(
+      `/api/clientes/${clienteId}/carritos/${restaurantId}/cupon`,
+      { codigo: code.trim() },
+    );
+    return mapCartFromApi(data);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al aplicar cupón';
+      throw new Error(msg);
+    }
+    throw new Error('No se pudo aplicar el cupón.');
+  }
+}
+
+export async function removeCartCoupon(restaurantId: number): Promise<Cart> {
+  const clienteId = await requireClienteId();
+
+  try {
+    const { data } = await apiClient.delete<CartFromApi>(
+      `/api/clientes/${clienteId}/carritos/${restaurantId}/cupon`,
+    );
+    return mapCartFromApi(data);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al quitar cupón';
+      throw new Error(msg);
+    }
+    throw new Error('No se pudo quitar el cupón.');
+  }
+}
+
+export async function applyCartVoucher(restaurantId: number, voucherId: number): Promise<Cart> {
+  const clienteId = await requireClienteId();
+
+  try {
+    const { data } = await apiClient.patch<CartFromApi>(
+      `/api/clientes/${clienteId}/carritos/${restaurantId}/voucher`,
+      { voucherId },
+    );
+    return mapCartFromApi(data);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al aplicar voucher';
+      throw new Error(msg);
+    }
+    throw new Error('No se pudo aplicar el voucher.');
+  }
+}
+
+export async function removeCartVoucher(restaurantId: number): Promise<Cart> {
+  const clienteId = await requireClienteId();
+
+  try {
+    const { data } = await apiClient.delete<CartFromApi>(
+      `/api/clientes/${clienteId}/carritos/${restaurantId}/voucher`,
+    );
+    return mapCartFromApi(data);
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al quitar voucher';
+      throw new Error(msg);
+    }
+    throw new Error('No se pudo quitar el voucher.');
+  }
+}
+
 export async function placeOrder(restaurantId: number, body: OrderRequest): Promise<PaymentResponse> {
   const clienteId = await requireClienteId();
 
