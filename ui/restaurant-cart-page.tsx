@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -450,12 +451,19 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
   const [cart, setCart] = useState<Cart | null>(null);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [updatingDishId, setUpdatingDishId] = useState<number | null>(null);
   const [deletingCart, setDeletingCart] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const cartUpdateInFlight = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (mode: 'initial' | 'refresh' | 'focus' = 'initial') => {
+    if (mode === 'refresh') {
+      setRefreshing(true);
+    } else if (mode === 'initial') {
+      setLoading(true);
+    }
+
     const [cartData, restaurantData] = await Promise.allSettled([
       getCart(restaurantId),
       getRestaurant(String(restaurantId)),
@@ -463,12 +471,14 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
 
     if (cartData.status === 'fulfilled') setCart(cartData.value);
     if (restaurantData.status === 'fulfilled') setRestaurant(restaurantData.value);
+    if (mode === 'refresh') notifyCartRefresh();
     setLoading(false);
+    setRefreshing(false);
   }, [restaurantId]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      load('focus');
     }, [load]),
   );
 
@@ -502,7 +512,18 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
   const activeItems = getActiveCartItems(cart);
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => void load('refresh')}
+          tintColor={Brand.primary}
+        />
+      }
+      showsVerticalScrollIndicator={false}
+    >
       <TouchableOpacity
         style={styles.backLink}
         onPress={() =>
@@ -628,7 +649,7 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.gray100 },
-  content: { padding: 16, paddingBottom: 32 },
+  content: { padding: 16, paddingBottom: 32, flexGrow: 1 },
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 16 },
   backText: { fontSize: 13, color: Brand.gray400 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
