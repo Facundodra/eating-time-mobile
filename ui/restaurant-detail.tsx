@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   Image,
   ScrollView,
@@ -54,9 +54,13 @@ export default function RestaurantDetailScreen({ id }: { id: string }) {
       .then(setRestaurant)
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar"))
       .finally(() => setLoading(false));
-
-    getCart(Number(id)).then(setCart).catch(() => setCart(null));
   }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      getCart(Number(id)).then(setCart).catch(() => setCart(null));
+    }, [id]),
+  );
 
   const cartItemCount = getCartItemCount(cart);
 

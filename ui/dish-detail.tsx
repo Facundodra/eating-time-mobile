@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -19,7 +19,7 @@ import {
 
 import { Brand } from "@/constants/theme";
 import { notifyCartRefresh } from "@/lib/cliente/cart-refresh";
-import { getActiveCartItems, getCartItemCount } from "@/lib/cliente/cart-utils";
+import { getActiveCartItems, getCartItemCount, isActiveCart } from "@/lib/cliente/cart-utils";
 import type { Cart, ClientDish, Discount } from "@/lib/cliente/types";
 import { getCart, getDish, getDishDiscount, getRestaurantName, updateCartItem } from "@/services/cliente/cliente-service";
 
@@ -68,6 +68,13 @@ export default function DishDetailScreen({ id }: { id: string }) {
       .finally(() => setLoading(false));
   }, [id]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!dish) return;
+      getCart(dish.localId).then(setCart).catch(() => setCart(null));
+    }, [dish?.localId]),
+  );
+
   const qty = dish
     ? getActiveCartItems(cart).find((i) => i.platoId === Number(dish.id))?.cantidad ?? 0
     : 0;
@@ -79,8 +86,7 @@ export default function DishDetailScreen({ id }: { id: string }) {
     setIsUpdating(true);
     try {
       const updated = await updateCartItem(dish.localId, Number(dish.id), delta);
-      const hasActiveItems = getActiveCartItems(updated).length > 0;
-      setCart(hasActiveItems ? updated : null);
+      setCart(isActiveCart(updated) ? updated : null);
       setCartError(null);
       notifyCartRefresh();
     } catch (err) {

@@ -15,7 +15,8 @@ import {
 } from 'react-native-heroicons/outline';
 
 import { Brand } from '@/constants/theme';
-import { getActiveCartItems } from '@/lib/cliente/cart-utils';
+import { getActiveCartItems, isActiveCart } from '@/lib/cliente/cart-utils';
+import { notifyCartRefresh } from '@/lib/cliente/cart-refresh';
 import type { Cart } from '@/lib/cliente/types';
 import { deleteCart, getCarts, getRestaurantName } from '@/services/cliente/cliente-service';
 
@@ -40,7 +41,7 @@ export default function CartsPage() {
   const load = useCallback(async () => {
     try {
       const rawCarts = await getCarts();
-      const activeCarts = rawCarts.filter((cart) => getActiveCartItems(cart).length > 0);
+      const activeCarts = rawCarts.filter((cart) => isActiveCart(cart));
       const cartsWithNames = await Promise.all(
         activeCarts.map(async (cart) => {
           const restaurantName = await getRestaurantName(cart.restaurantId).catch(
@@ -66,6 +67,7 @@ export default function CartsPage() {
     try {
       await deleteCart(restaurantId);
       setCarts((prev) => prev.filter((c) => c.restaurantId !== restaurantId));
+      notifyCartRefresh();
     } finally {
       setDeletingRestaurantId(null);
     }
