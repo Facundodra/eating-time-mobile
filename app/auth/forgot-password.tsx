@@ -20,7 +20,7 @@ export default function ForgotPasswordPage() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fff' },
+  root: { flex: 1, backgroundColor: '#ffff' },
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',

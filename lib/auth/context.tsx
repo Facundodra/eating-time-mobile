@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { router } from 'expo-router';
 
+import { registerSessionExpiredHandler } from './session-expired';
 import { clearSession, getSession, saveSession } from './session';
 import type { AuthUser, LoginCredentials } from './types';
 
@@ -32,15 +34,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  useEffect(() => {
+    registerSessionExpiredHandler(async () => {
+      await clearSession();
+      setUser(null);
+      router.replace('/auth/login');
+    });
+
+    return () => registerSessionExpiredHandler(null);
+  }, []);
+
   async function setSession(newUser: AuthUser, sessionId?: string) {
     await saveSession(newUser, sessionId);
     setUser(newUser);
   }
 
   async function login(credentials: LoginCredentials) {
-    const { authService } = await import('@/services/auth-service');
+    const { authService, getCurrentSession } = await import('@/services/auth-service');
     const { sessionId, user: newUser } = await authService.login(credentials);
     await setSession(newUser, sessionId);
+
+    try {
+      const session = await getCurrentSession();
+      await setSession({ ...newUser, name: session.nombre, photoUrl: session.urlFoto }, sessionId);
+    } catch {
+      // el nombre/foto son mejoras best-effort; si falla, queda la sesión básica
+    }
   }
 
   async function logout() {

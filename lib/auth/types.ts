@@ -4,6 +4,7 @@ export type AuthUser = {
   role: 'CLIENTE';
   name: string;
   email: string;
+  photoUrl?: string | null;
 };
 
 export type AuthSession = {
