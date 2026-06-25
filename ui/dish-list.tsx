@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   filterLabel: { fontSize: 12, fontWeight: "600", color: Brand.gray800 },
   filterSep: { width: 1, height: 20, backgroundColor: Brand.gray200, marginHorizontal: 4 },
 
-  pill: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: Brand.gray200, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  pill: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: Brand.gray200, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, height: 30 },
   pillActive: { backgroundColor: Brand.primary, borderColor: Brand.primary },
   pillText: { fontSize: 12, fontWeight: "500", color: Brand.gray600 },
   pillTextActive: { color: "#fff" },

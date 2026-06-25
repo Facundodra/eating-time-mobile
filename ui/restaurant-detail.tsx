@@ -27,11 +27,16 @@ import DishesList from "@/ui/dish-list";
 function RestaurantInfoSkeleton() {
   return (
     <View style={styles.infoCard}>
-      <View style={styles.skeletonAvatar} />
-      <View style={styles.infoText}>
-        <View style={[styles.skeletonLine, { width: "60%", height: 18 }]} />
-        <View style={[styles.skeletonLine, { width: "90%", marginTop: 8 }]} />
-        <View style={[styles.skeletonLine, { width: "50%", marginTop: 6 }]} />
+      <View style={styles.skeletonCover} />
+      <View style={styles.infoSection}>
+        <View style={styles.avatarWrapper}>
+          <View style={styles.skeletonAvatar} />
+        </View>
+        <View style={styles.infoText}>
+          <View style={[styles.skeletonLine, { width: "60%", height: 18 }]} />
+          <View style={[styles.skeletonLine, { width: "90%", marginTop: 8 }]} />
+          <View style={[styles.skeletonLine, { width: "50%", marginTop: 6 }]} />
+        </View>
       </View>
     </View>
   );
@@ -78,15 +83,15 @@ export default function RestaurantDetailScreen({ id }: { id: string }) {
         <View style={[styles.body, cartItemCount > 0 && styles.bodyWithCart]}>
           {/* Ficha del local */}
           <View style={styles.infoCard}>
-            <View style={styles.avatarWrapper}>
-              {restaurant.url_photo ? (
+            <View style={styles.cover}>
+              {restaurant.coverPhotoUrl ? (
                 <Image
-                  source={{ uri: restaurant.url_photo }}
-                  style={styles.avatar}
-                  resizeMode="contain"
+                  source={{ uri: restaurant.coverPhotoUrl }}
+                  style={styles.coverImg}
+                  resizeMode="cover"
                 />
               ) : (
-                <Text style={styles.avatarPlaceholder}>
+                <Text style={styles.coverPlaceholder}>
                   {restaurant.name.charAt(0).toUpperCase()}
                 </Text>
               )}
@@ -102,30 +107,46 @@ export default function RestaurantDetailScreen({ id }: { id: string }) {
               </View>
             </View>
 
-            <View style={styles.infoText}>
-              <View style={styles.nameRow}>
-                <Text style={styles.restaurantName}>{restaurant.name}</Text>
-                <View style={styles.starsRow}>
-                  <StarIcon size={14} color="#FB923C" />
-                  <Text style={styles.starsText}>{restaurant.stars}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => router.push({ pathname: "/(tabs)/local/[id]/comentarios", params: { id } })}
-                >
-                  <Text style={styles.ratingsLink}>Ver comentarios</Text>
-                </TouchableOpacity>
+            <View style={styles.infoSection}>
+              <View style={styles.avatarWrapper}>
+                {restaurant.url_photo ? (
+                  <Image
+                    source={{ uri: restaurant.url_photo }}
+                    style={styles.avatar}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.avatarPlaceholder}>
+                    {restaurant.name.charAt(0).toUpperCase()}
+                  </Text>
+                )}
               </View>
 
-              {restaurant.description ? (
-                <Text style={styles.description}>{restaurant.description}</Text>
-              ) : null}
-
-              {restaurant.address ? (
-                <View style={styles.addressRow}>
-                  <MapPinIcon size={13} color={Brand.gray400} />
-                  <Text style={styles.addressText}>{restaurant.address}</Text>
+              <View style={styles.infoText}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.restaurantName}>{restaurant.name}</Text>
+                  <View style={styles.starsRow}>
+                    <StarIcon size={14} color="#FB923C" />
+                    <Text style={styles.starsText}>{restaurant.stars}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: "/(tabs)/local/[id]/comentarios", params: { id } })}
+                  >
+                    <Text style={styles.ratingsLink}>Ver comentarios</Text>
+                  </TouchableOpacity>
                 </View>
-              ) : null}
+
+                {restaurant.description ? (
+                  <Text style={styles.description}>{restaurant.description}</Text>
+                ) : null}
+
+                {restaurant.address ? (
+                  <View style={styles.addressRow}>
+                    <MapPinIcon size={13} color={Brand.gray400} />
+                    <Text style={styles.addressText}>{restaurant.address}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
           </View>
 
@@ -176,20 +197,26 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
   bodyWithCart: { paddingBottom: 88 },
 
-  infoCard: { flexDirection: "row", backgroundColor: "#fff", padding: 16, gap: 14, borderBottomWidth: 1, borderBottomColor: Brand.gray200 },
+  infoCard: { backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: Brand.gray200 },
 
-  avatarWrapper: { alignItems: "center", gap: 6 },
-  avatar: { width: 80, height: 80, borderRadius: 40 },
-  avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, backgroundColor: "#FFF7ED", textAlign: "center", lineHeight: 80, fontSize: 32, fontWeight: "900", color: Brand.primary },
+  cover: { height: 150, backgroundColor: "#FFF7ED", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  coverImg: { width: "100%", height: "100%", position: "absolute" },
+  coverPlaceholder: { fontSize: 48, fontWeight: "900", color: "rgba(234,72,0,0.4)" },
 
-  stateBadge: { flexDirection: "row", alignItems: "center", gap: 3, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
+  infoSection: { flexDirection: "row", padding: 16, gap: 14 },
+
+  avatarWrapper: { marginTop: -40 },
+  avatar: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: "#fff" },
+  avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: "#fff", backgroundColor: "#FFF7ED", textAlign: "center", lineHeight: 72, fontSize: 32, fontWeight: "900", color: Brand.primary },
+
+  stateBadge: { position: "absolute", bottom: 10, right: 10, flexDirection: "row", alignItems: "center", gap: 3, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
   badgeOpen: { backgroundColor: "#D1FAE5" },
   badgeClosed: { backgroundColor: "#F3F4F6" },
   badgeText: { fontSize: 10, fontWeight: "600" },
   badgeTextOpen: { color: "#065F46" },
   badgeTextClosed: { color: "#6B7280" },
 
-  infoText: { flex: 1, justifyContent: "center", gap: 4 },
+  infoText: { flex: 1, justifyContent: "center", gap: 4, marginTop: 6 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
   restaurantName: { fontSize: 16, fontWeight: "800", color: Brand.black, flexShrink: 1 },
   starsRow: { flexDirection: "row", alignItems: "center", gap: 3 },
@@ -204,7 +231,8 @@ const styles = StyleSheet.create({
   errorBanner: { backgroundColor: "#FEF2F2", borderRadius: 10, padding: 16 },
   errorText: { color: "#DC2626", fontSize: 13, textAlign: "center" },
 
-  skeletonAvatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: Brand.gray200 },
+  skeletonCover: { height: 150, backgroundColor: Brand.gray200 },
+  skeletonAvatar: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: "#fff", backgroundColor: Brand.gray200 },
   skeletonLine: { height: 12, borderRadius: 6, backgroundColor: Brand.gray200 },
 
   cartBar: {

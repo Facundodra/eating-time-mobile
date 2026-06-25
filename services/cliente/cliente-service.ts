@@ -127,6 +127,7 @@ interface RestaurantSingleDtoFromApi {
     id: number;
     nombre: string;
     urlFoto: string | null;
+    urlPortadaMobile: string | null;
     estadoServicio: boolean;
     calificacion: number | null;
     direccion: string | null;
@@ -138,6 +139,7 @@ function mapRestaurantDtoApiToRestaurant(r: RestaurantSingleDtoFromApi): Restaur
         id: r.id,
         name: r.nombre,
         url_photo: r.urlFoto ?? "",
+        coverPhotoUrl: r.urlPortadaMobile ?? "",
         stars: r.calificacion ?? 0,
         state: r.estadoServicio,
         address : r.direccion,

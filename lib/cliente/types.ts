@@ -64,6 +64,7 @@ export type Restaurant ={
   id: number;
   name: string;
   url_photo: string;
+  coverPhotoUrl: string;
   stars: number;
   state: boolean;
   address: string | null;
