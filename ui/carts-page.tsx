@@ -2,6 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,7 +16,8 @@ import {
 } from 'react-native-heroicons/outline';
 
 import { Brand } from '@/constants/theme';
-import { getActiveCartItems } from '@/lib/cliente/cart-utils';
+import { getActiveCartItems, isActiveCart } from '@/lib/cliente/cart-utils';
+import { notifyCartRefresh } from '@/lib/cliente/cart-refresh';
 import type { Cart } from '@/lib/cliente/types';
 import { deleteCart, getCarts, getRestaurantName } from '@/services/cliente/cliente-service';
 
@@ -34,13 +36,21 @@ function CartCardSkeleton() {
 export default function CartsPage() {
   const [carts, setCarts] = useState<CartWithName[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingRestaurantId, setDeletingRestaurantId] = useState<number | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (mode: 'initial' | 'refresh' | 'focus' = 'initial') => {
+    if (mode === 'refresh') {
+      setRefreshing(true);
+    } else if (mode === 'initial') {
+      setLoading(true);
+    }
+    setError(null);
+
     try {
       const rawCarts = await getCarts();
-      const activeCarts = rawCarts.filter((cart) => getActiveCartItems(cart).length > 0);
+      const activeCarts = rawCarts.filter((cart) => isActiveCart(cart));
       const cartsWithNames = await Promise.all(
         activeCarts.map(async (cart) => {
           const restaurantName = await getRestaurantName(cart.restaurantId).catch(
@@ -50,15 +60,17 @@ export default function CartsPage() {
         }),
       );
       setCarts(cartsWithNames);
+      if (mode === 'refresh') notifyCartRefresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar los carritos.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   useFocusEffect(useCallback(() => {
-    load();
+    load('focus');
   }, [load]));
 
   async function handleDelete(restaurantId: number) {
@@ -66,13 +78,25 @@ export default function CartsPage() {
     try {
       await deleteCart(restaurantId);
       setCarts((prev) => prev.filter((c) => c.restaurantId !== restaurantId));
+      notifyCartRefresh();
     } finally {
       setDeletingRestaurantId(null);
     }
   }
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => void load('refresh')}
+          tintColor={Brand.primary}
+        />
+      }
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.title}>Mis carritos</Text>
 
       {loading && (
@@ -159,7 +183,7 @@ export default function CartsPage() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.gray100 },
-  content: { padding: 16, paddingBottom: 32 },
+  content: { padding: 16, paddingBottom: 32, flexGrow: 1 },
   title: { fontSize: 20, fontWeight: '800', color: Brand.black, marginBottom: 16 },
   list: { gap: 12 },
   card: {

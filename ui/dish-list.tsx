@@ -14,7 +14,8 @@ import {
 import { MinusIcon, PlusIcon, TagIcon } from "react-native-heroicons/outline";
 
 import { Brand } from "@/constants/theme";
-import { getActiveCartItems } from "@/lib/cliente/cart-utils";
+import { getActiveCartItems, isActiveCart } from "@/lib/cliente/cart-utils";
+import { notifyCartRefresh } from "@/lib/cliente/cart-refresh";
 import type { Cart, ClientDish, Discount } from "@/lib/cliente/types";
 import { getDishDiscount, getDishes, getDiscountedDishIds, updateCartItem, type DishFilter } from "@/services/cliente/cliente-service";
 
@@ -168,8 +169,8 @@ export default function DishesList({ idLocal, cart, onCartUpdate }: Props) {
     setUpdatingDishId(Number(dishId));
     try {
       const updated = await updateCartItem(idLocal, Number(dishId), delta);
-      const hasActiveItems = getActiveCartItems(updated).length > 0;
-      onCartUpdate(hasActiveItems ? updated : null);
+      onCartUpdate(isActiveCart(updated) ? updated : null);
+      notifyCartRefresh();
     } catch (err) {
       console.warn('[carrito] error en updateCartItem:', err);
     } finally {

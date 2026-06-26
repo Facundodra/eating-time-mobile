@@ -20,6 +20,7 @@ import type {
     RestaurantList,
 } from '@/lib/cliente/types';
 
+import { isActiveCart } from '@/lib/cliente/cart-utils';
 import { requireClienteId } from '@/lib/cliente/require-session';
 import { apiClient } from '../api-client';
 
@@ -392,11 +393,24 @@ export async function getCart(restaurantId: number): Promise<Cart | null> {
 
   try {
     const { data } = await apiClient.get<CartFromApi>(`/api/clientes/${clienteId}/carritos/${restaurantId}`);
-    return mapCartFromApi(data);
+    const cart = mapCartFromApi(data);
+    if (isActiveCart(cart)) return cart;
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null;
+    if (!axios.isAxiosError(error) || error.response?.status !== 404) {
+      if (axios.isAxiosError(error)) {
+        const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al obtener carrito';
+        throw new Error(msg);
+      }
+      throw new Error('No se pudo cargar el carrito.');
     }
+  }
+
+  // Tras vaciar un carrito, el endpoint por local puede devolver el pedido
+  // eliminado/vacío mientras agregar-plato crea uno nuevo EN_CARRITO.
+  try {
+    const carts = await getCarts();
+    return carts.find((cart) => cart.restaurantId === restaurantId && isActiveCart(cart)) ?? null;
+  } catch (error) {
     if (axios.isAxiosError(error)) {
       const msg = error.response?.data?.error ?? error.response?.data?.message ?? 'Error al obtener carrito';
       throw new Error(msg);
