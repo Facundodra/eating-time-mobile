@@ -1,8 +1,9 @@
 import * as WebBrowser from 'expo-web-browser';
-import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -22,7 +23,7 @@ import {
 } from 'react-native-heroicons/outline';
 
 import { Brand } from '@/constants/theme';
-import { getActiveCartItems } from '@/lib/cliente/cart-utils';
+import { getActiveCartItems, isActiveCart } from '@/lib/cliente/cart-utils';
 import { formatOrderPrice } from '@/lib/cliente/order-utils';
 import type { AppliedCartCoupon, Cart, DeliveryPoint, OrderRequest, Restaurant, Voucher } from '@/lib/cliente/types';
 import { notifyCartRefresh } from '@/lib/cliente/cart-refresh';
@@ -140,7 +141,7 @@ function CheckoutSection({
       onCartChange(updated);
       setCouponCode('');
     } catch (err) {
-      setCouponError(err instanceof Error ? err.message : 'No se pudo aplicar el cupón.');
+      setCouponError(err instanceof Error ? err.message : 'No se pudo aplicar el cup?n.');
     } finally {
       setApplyingCoupon(false);
     }
@@ -152,7 +153,7 @@ function CheckoutSection({
     try {
       onCartChange(await removeCartCoupon(restaurantId));
     } catch (err) {
-      setCouponError(err instanceof Error ? err.message : 'No se pudo quitar el cupón.');
+      setCouponError(err instanceof Error ? err.message : 'No se pudo quitar el cup?n.');
     } finally {
       setRemovingCoupon(false);
     }
@@ -191,7 +192,7 @@ function CheckoutSection({
       body = { puntoDeEntregaId: selectedPointId };
     } else {
       if (!localidad || !calle || !numero) {
-        setError('Localidad, calle y número son obligatorios.');
+        setError('Localidad, calle y n?mero son obligatorios.');
         return;
       }
       body = {
@@ -222,9 +223,9 @@ function CheckoutSection({
       const message = err instanceof Error ? err.message : 'No se pudo realizar el pedido.';
       const lower = message.toLowerCase();
       if (lower.includes('venc')) {
-        setError('El voucher ya no es válido. Quitá el voucher aplicado e intentá realizar el pedido nuevamente.');
-      } else if (lower.includes('cupón') || lower.includes('cupon')) {
-        setError('El cupón ya no es válido. Quitá el cupón aplicado e intentá realizar el pedido nuevamente.');
+        setError('El voucher ya no es v?lido. Quit? el voucher aplicado e intent? realizar el pedido nuevamente.');
+      } else if (lower.includes('cup?n') || lower.includes('cupon')) {
+        setError('El cup?n ya no es v?lido. Quit? el cup?n aplicado e intent? realizar el pedido nuevamente.');
       } else {
         setError(message);
       }
@@ -243,7 +244,7 @@ function CheckoutSection({
 
   return (
     <View style={styles.checkout}>
-      <Text style={styles.checkoutTitle}>Dirección de entrega</Text>
+      <Text style={styles.checkoutTitle}>Direcci?n de entrega</Text>
 
       {deliveryPoints.length > 0 && (
         <View style={styles.modeRow}>
@@ -260,7 +261,7 @@ function CheckoutSection({
             onPress={() => setMode('manual')}
           >
             <Text style={[styles.modeBtnText, mode === 'manual' && styles.modeBtnTextActive]}>
-              Nueva dirección
+              Nueva direcci?n
             </Text>
           </TouchableOpacity>
         </View>
@@ -293,7 +294,7 @@ function CheckoutSection({
               <TextInput style={styles.input} value={calle} onChangeText={setCalle} placeholder="Ej: Av. Italia" />
             </View>
             <View style={styles.formCol}>
-              <Text style={styles.label}>Número *</Text>
+              <Text style={styles.label}>N?mero *</Text>
               <TextInput style={styles.input} value={numero} onChangeText={setNumero} placeholder="2547" />
             </View>
           </View>
@@ -311,19 +312,19 @@ function CheckoutSection({
 
           <View style={styles.switchRow}>
             <Switch value={guardarEnCuenta} onValueChange={setGuardarEnCuenta} trackColor={{ true: Brand.primary }} />
-            <Text style={styles.switchLabel}>Guardar esta dirección en mi cuenta</Text>
+            <Text style={styles.switchLabel}>Guardar esta direcci?n en mi cuenta</Text>
           </View>
         </View>
       )}
 
       <View style={styles.discountSection}>
-        <Text style={styles.checkoutTitle}>Cupón de descuento</Text>
+        <Text style={styles.checkoutTitle}>Cup?n de descuento</Text>
 
         {appliedCoupon ? (
           <View style={styles.discountApplied}>
             <View style={styles.discountAppliedInfo}>
               <Text style={styles.discountAppliedLabel}>
-                Cupón {appliedCoupon.code} ({appliedCoupon.percentage}%)
+                Cup?n {appliedCoupon.code} ({appliedCoupon.percentage}%)
               </Text>
               <Text style={styles.discountAppliedAmount}>-{formatOrderPrice(appliedCoupon.discountAmount)}</Text>
             </View>
@@ -340,7 +341,7 @@ function CheckoutSection({
             <View style={styles.couponRow}>
               <TextInput
                 style={[styles.input, styles.couponInput]}
-                placeholder="Código de cupón"
+                placeholder="C?digo de cup?n"
                 placeholderTextColor={Brand.gray400}
                 autoCapitalize="characters"
                 value={couponCode}
@@ -386,7 +387,7 @@ function CheckoutSection({
             </TouchableOpacity>
           </View>
         ) : availableVouchers.length === 0 ? (
-          <Text style={styles.label}>No tenés vouchers disponibles para este local.</Text>
+          <Text style={styles.label}>No ten?s vouchers disponibles para este local.</Text>
         ) : (
           <View style={styles.voucherList}>
             {availableVouchers.map((voucher) => {
@@ -400,7 +401,7 @@ function CheckoutSection({
                 >
                   <View style={styles.voucherOptionRow}>
                     <Text style={styles.pointMain}>
-                      {voucher.code} · {formatOrderPrice(voucher.amount)}
+                      {voucher.code} ? {formatOrderPrice(voucher.amount)}
                     </Text>
                     {isApplying && <ActivityIndicator size="small" color={Brand.primary} />}
                   </View>
@@ -450,25 +451,36 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
   const [cart, setCart] = useState<Cart | null>(null);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [updatingDishId, setUpdatingDishId] = useState<number | null>(null);
   const [deletingCart, setDeletingCart] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const cartUpdateInFlight = useRef(false);
 
-  useEffect(() => {
-    async function load() {
-      const [cartData, restaurantData] = await Promise.allSettled([
-        getCart(restaurantId),
-        getRestaurant(String(restaurantId)),
-      ]);
-
-      if (cartData.status === 'fulfilled') setCart(cartData.value);
-      if (restaurantData.status === 'fulfilled') setRestaurant(restaurantData.value);
-      setLoading(false);
+  const load = useCallback(async (mode: 'initial' | 'refresh' | 'focus' = 'initial') => {
+    if (mode === 'refresh') {
+      setRefreshing(true);
+    } else if (mode === 'initial') {
+      setLoading(true);
     }
 
-    load();
+    const [cartData, restaurantData] = await Promise.allSettled([
+      getCart(restaurantId),
+      getRestaurant(String(restaurantId)),
+    ]);
+
+    if (cartData.status === 'fulfilled') setCart(cartData.value);
+    if (restaurantData.status === 'fulfilled') setRestaurant(restaurantData.value);
+    if (mode === 'refresh') notifyCartRefresh();
+    setLoading(false);
+    setRefreshing(false);
   }, [restaurantId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load('focus');
+    }, [load]),
+  );
 
   async function handleUpdateItem(platoId: number, delta: number) {
     if (cartUpdateInFlight.current) return;
@@ -476,9 +488,9 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
     setUpdatingDishId(platoId);
     try {
       const updated = await updateCartItem(restaurantId, platoId, delta);
-      const hasActiveItems = getActiveCartItems(updated).length > 0;
-      setCart(hasActiveItems ? updated : null);
-      if (!hasActiveItems) setCheckoutOpen(false);
+      setCart(isActiveCart(updated) ? updated : null);
+      if (!isActiveCart(updated)) setCheckoutOpen(false);
+      notifyCartRefresh();
     } finally {
       cartUpdateInFlight.current = false;
       setUpdatingDishId(null);
@@ -491,6 +503,7 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
       await deleteCart(restaurantId);
       setCart(null);
       setCheckoutOpen(false);
+      notifyCartRefresh();
     } finally {
       setDeletingCart(false);
     }
@@ -499,7 +512,18 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
   const activeItems = getActiveCartItems(cart);
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => void load('refresh')}
+          tintColor={Brand.primary}
+        />
+      }
+      showsVerticalScrollIndicator={false}
+    >
       <TouchableOpacity
         style={styles.backLink}
         onPress={() =>
@@ -512,7 +536,7 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
 
       <View style={styles.titleRow}>
         <Text style={styles.title}>Tu carrito</Text>
-        {cart && (
+        {isActiveCart(cart) && (
           <TouchableOpacity onPress={handleDeleteCart} disabled={deletingCart} style={styles.vaciarBtn}>
             {deletingCart ? (
               <ActivityIndicator size="small" color="#EF4444" />
@@ -534,10 +558,10 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
         </View>
       )}
 
-      {!loading && (!cart || activeItems.length === 0) && (
+      {!loading && !isActiveCart(cart) && (
         <View style={styles.empty}>
           <ShoppingCartIcon size={56} color={Brand.gray400} />
-          <Text style={styles.emptyText}>Tu carrito está vacío.</Text>
+          <Text style={styles.emptyText}>Tu carrito est? vac?o.</Text>
           <TouchableOpacity
             onPress={() =>
               router.push({ pathname: '/(tabs)/local/[id]', params: { id: String(restaurantId) } })
@@ -548,7 +572,7 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
         </View>
       )}
 
-      {!loading && cart && activeItems.length > 0 && (
+      {!loading && isActiveCart(cart) && (
         <>
           {activeItems.map((item) => {
             const isUpdating = updatingDishId === item.platoId;
@@ -625,7 +649,7 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.gray100 },
-  content: { padding: 16, paddingBottom: 32 },
+  content: { padding: 16, paddingBottom: 32, flexGrow: 1 },
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 16 },
   backText: { fontSize: 13, color: Brand.gray400 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },

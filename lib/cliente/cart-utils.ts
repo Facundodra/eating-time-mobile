@@ -4,7 +4,15 @@ export function getActiveCartItems(cart: Cart | null) {
   return cart?.items.filter((i) => i.eliminacion == null) ?? [];
 }
 
+/** Carrito vigente: EN_CARRITO, no eliminado y con ítems activos. */
+export function isActiveCart(cart: Cart | null): boolean {
+  if (!cart || cart.eliminacion != null) return false;
+  if (cart.estado !== 'EN_CARRITO') return false;
+  return getActiveCartItems(cart).length > 0;
+}
+
 export function getCartItemCount(cart: Cart | null) {
+  if (!isActiveCart(cart)) return 0;
   return getActiveCartItems(cart).reduce((sum, i) => sum + i.cantidad, 0);
 }
 
