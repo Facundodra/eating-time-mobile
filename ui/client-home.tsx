@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -193,6 +194,7 @@ export default function ClientHomePage() {
   const requestedDiscountIds = useRef<Set<number>>(new Set());
   const endReachedGuard = useRef(false);
   const browseRequestId = useRef(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchDiscountsForDishes = useCallback((dishes: ClientDish[], ids: Set<number>) => {
     const idsToFetch = dishes
@@ -211,6 +213,53 @@ export default function ClientHomePage() {
     });
   }, []);
 
+  const loadHomeData = useCallback(async () => {
+    const [again, promos, popular, restaurants, discounted] = await Promise.all([
+      getOrderAgainDishes(8).catch(() => [] as ClientDish[]),
+      getDishes({ conDescuento: true, tamano: PREVIEW_SIZE, pagina: 0 }).catch(() => ({
+        dishes: [] as ClientDish[],
+        totalPages: 0,
+        totalElements: 0,
+        page: 0,
+      })),
+      getDishes({ orden: 'popularidad', sentido: 'desc', tamano: 8, pagina: 0 }).catch(() => ({
+        dishes: [] as ClientDish[],
+        totalPages: 0,
+        totalElements: 0,
+        page: 0,
+      })),
+      getRestaurants({ ordenarPor: 'calificacion', direccion: 'desc', size: PREVIEW_SIZE, page: 0 }).catch(() => ({
+        restaurants: [] as RestaurantList[],
+        totalPages: 0,
+      })),
+      getDiscountedDishIds().catch(() => new Set<number>()),
+    ]);
+    const restaurantsWithAvailability = await applyRestaurantAvailability(restaurants.restaurants).catch(
+      () => restaurants.restaurants,
+    );
+    setOrderAgain(again);
+    setPromoDishes(promos.dishes);
+    setPopularDishes(popular.dishes);
+    setTopRestaurants(restaurantsWithAvailability);
+    discountedIdsRef.current = discounted;
+    fetchDiscountsForDishes([...again, ...promos.dishes, ...popular.dishes], discounted);
+  }, [fetchDiscountsForDishes]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!user?.id) return;
+    setRefreshing(true);
+    requestedDiscountIds.current = new Set();
+    setDiscounts(new Map());
+    try {
+      await loadHomeData();
+      setHomeError(null);
+    } catch (err) {
+      setHomeError(err instanceof Error ? err.message : 'Error al actualizar el inicio');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user?.id, loadHomeData]);
+
   useEffect(() => {
     getDishCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
@@ -226,53 +275,23 @@ export default function ClientHomePage() {
     setHomeLoading(true);
     setHomeError(null);
 
-    (async () => {
-      try {
-        const [again, promos, popular, restaurants, discounted] = await Promise.all([
-          getOrderAgainDishes(8).catch(() => [] as ClientDish[]),
-          getDishes({ conDescuento: true, tamano: PREVIEW_SIZE, pagina: 0 }).catch(() => ({
-            dishes: [] as ClientDish[],
-            totalPages: 0,
-            totalElements: 0,
-            page: 0,
-          })),
-          getDishes({ orden: 'popularidad', sentido: 'desc', tamano: 8, pagina: 0 }).catch(() => ({
-            dishes: [] as ClientDish[],
-            totalPages: 0,
-            totalElements: 0,
-            page: 0,
-          })),
-          getRestaurants({ ordenarPor: 'calificacion', direccion: 'desc', size: PREVIEW_SIZE, page: 0 }).catch(() => ({
-            restaurants: [] as RestaurantList[],
-            totalPages: 0,
-          })),
-          getDiscountedDishIds().catch(() => new Set<number>()),
-        ]);
-        if (cancelled) return;
-        const restaurantsWithAvailability = await applyRestaurantAvailability(restaurants.restaurants).catch(
-          () => restaurants.restaurants,
-        );
-        if (cancelled) return;
-        setOrderAgain(again);
-        setPromoDishes(promos.dishes);
-        setPopularDishes(popular.dishes);
-        setTopRestaurants(restaurantsWithAvailability);
-        discountedIdsRef.current = discounted;
-        fetchDiscountsForDishes([...again, ...promos.dishes, ...popular.dishes], discounted);
-        setHomeLoaded(true);
-      } catch (err) {
+    loadHomeData()
+      .then(() => {
+        if (!cancelled) setHomeLoaded(true);
+      })
+      .catch((err) => {
         if (!cancelled) {
           setHomeError(err instanceof Error ? err.message : 'Error al cargar el inicio');
         }
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) setHomeLoading(false);
-      }
-    })();
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [user?.id, homeLoaded, fetchDiscountsForDishes]);
+  }, [user?.id, homeLoaded, loadHomeData]);
 
   useEffect(() => {
     if (!showResults || !user?.id) {
@@ -625,6 +644,9 @@ export default function ClientHomePage() {
         item.kind === 'dish' ? `dish-${item.data.id}` : `rest-${item.data.id}-${index}`
       }
       contentContainerStyle={styles.listContent}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Brand.primary} colors={[Brand.primary]} />
+      }
       ListHeaderComponent={listHeader}
       renderItem={({ item }) =>
         item.kind === 'dish' ? (
