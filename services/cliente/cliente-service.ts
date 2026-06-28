@@ -289,7 +289,10 @@ interface CategoriaDtoFromApi {
     urlFoto: string | null;
 }
 
-export async function getDishCategories(): Promise<DishCategory[]> {
+let dishCategoriesCache: DishCategory[] | null = null;
+let dishCategoriesPromise: Promise<DishCategory[]> | null = null;
+
+async function fetchDishCategories(): Promise<DishCategory[]> {
     try {
         const { data } = await apiClient.get<CategoriaDtoFromApi[]>('/api/categorias');
         return data.map((c) => ({
@@ -305,6 +308,24 @@ export async function getDishCategories(): Promise<DishCategory[]> {
         }
         throw new Error('No se pudieron cargar las categorías.');
     }
+}
+
+export async function getDishCategories(): Promise<DishCategory[]> {
+    if (dishCategoriesCache) return dishCategoriesCache;
+
+    if (!dishCategoriesPromise) {
+        dishCategoriesPromise = fetchDishCategories()
+            .then((categories) => {
+                dishCategoriesCache = categories;
+                return categories;
+            })
+            .catch((error) => {
+                dishCategoriesPromise = null;
+                throw error;
+            });
+    }
+
+    return dishCategoriesPromise;
 }
 
 export async function getOrderAgainDishes(limit = 8): Promise<ClientDish[]> {
@@ -358,9 +379,20 @@ export async function getDishDiscount(dishId: number): Promise<Discount | null> 
     }
 }
 
+const DISCOUNTED_IDS_TTL_MS = 2 * 60 * 1000;
+const discountedDishIdsCache = new Map<string, { ids: Set<number>; expiresAt: number }>();
+
 export async function getDiscountedDishIds(idLocal?: number): Promise<Set<number>> {
+    const cacheKey = idLocal !== undefined ? String(idLocal) : 'all';
+    const cached = discountedDishIdsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+        return cached.ids;
+    }
+
     const { dishes } = await getDishes({ idLocal, conDescuento: true, tamano: 200, pagina: 0 });
-    return new Set(dishes.map((dish: ClientDish) => Number(dish.id)));
+    const ids = new Set(dishes.map((dish: ClientDish) => Number(dish.id)));
+    discountedDishIdsCache.set(cacheKey, { ids, expiresAt: Date.now() + DISCOUNTED_IDS_TTL_MS });
+    return ids;
 }
 
 

@@ -21,6 +21,7 @@ import { Brand } from "@/constants/theme";
 import { getCartItemCount } from "@/lib/cliente/cart-utils";
 import type { Cart, Restaurant } from "@/lib/cliente/types";
 import { getCart, getRestaurant } from "@/services/cliente/cliente-service";
+import { applyRestaurantAvailabilityToOne } from "@/services/cliente/restaurant-availability-service";
 import DishesList from "@/ui/dish-list";
 
 
@@ -51,7 +52,10 @@ export default function RestaurantDetailScreen({ id }: { id: string }) {
 
   useEffect(() => {
     getRestaurant(id)
-      .then(setRestaurant)
+      .then(async (data) => {
+        const dataWithAvailability = await applyRestaurantAvailabilityToOne(data).catch(() => data);
+        setRestaurant(dataWithAvailability);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar"))
       .finally(() => setLoading(false));
   }, [id]);

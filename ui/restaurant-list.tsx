@@ -14,6 +14,7 @@ import {
 import { Brand } from '@/constants/theme';
 import type { RestaurantList } from '@/lib/cliente/types';
 import { getRestaurants } from '@/services/cliente/cliente-service';
+import { applyRestaurantAvailability } from '@/services/cliente/restaurant-availability-service';
 import {
   CheckCircleIcon,
   MoonIcon,
@@ -106,8 +107,9 @@ export default function RestaurantList({ initialNombre = '' }: Props) {
       page: pageToLoad,
       size: PAGE_SIZE,
     })
-      .then(({ restaurants: batch, totalPages }) => {
-        setRestaurants((prev) => (replace ? batch : [...prev, ...batch]));
+      .then(async ({ restaurants: batch, totalPages }) => {
+        const batchWithAvailability = await applyRestaurantAvailability(batch).catch(() => batch);
+        setRestaurants((prev) => (replace ? batchWithAvailability : [...prev, ...batchWithAvailability]));
         setHasMore(pageToLoad + 1 < totalPages);
       })
       .catch((err) => {
