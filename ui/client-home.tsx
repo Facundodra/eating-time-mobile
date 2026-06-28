@@ -32,6 +32,7 @@ import {
   getOrderAgainDishes,
   getRestaurants,
 } from '@/services/cliente/cliente-service';
+import { applyRestaurantAvailability } from '@/services/cliente/restaurant-availability-service';
 
 type SearchTab = 'platos' | 'restaurantes';
 
@@ -248,10 +249,14 @@ export default function ClientHomePage() {
           getDiscountedDishIds().catch(() => new Set<number>()),
         ]);
         if (cancelled) return;
+        const restaurantsWithAvailability = await applyRestaurantAvailability(restaurants.restaurants).catch(
+          () => restaurants.restaurants,
+        );
+        if (cancelled) return;
         setOrderAgain(again);
         setPromoDishes(promos.dishes);
         setPopularDishes(popular.dishes);
-        setTopRestaurants(restaurants.restaurants);
+        setTopRestaurants(restaurantsWithAvailability);
         discountedIdsRef.current = discounted;
         fetchDiscountsForDishes([...again, ...promos.dishes, ...popular.dishes], discounted);
         setHomeLoaded(true);
