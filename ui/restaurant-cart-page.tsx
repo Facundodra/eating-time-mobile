@@ -141,7 +141,7 @@ function CheckoutSection({
       onCartChange(updated);
       setCouponCode('');
     } catch (err) {
-      setCouponError(err instanceof Error ? err.message : 'No se pudo aplicar el cup?n.');
+      setCouponError(err instanceof Error ? err.message : 'No se pudo aplicar el cupón.');
     } finally {
       setApplyingCoupon(false);
     }
@@ -153,7 +153,7 @@ function CheckoutSection({
     try {
       onCartChange(await removeCartCoupon(restaurantId));
     } catch (err) {
-      setCouponError(err instanceof Error ? err.message : 'No se pudo quitar el cup?n.');
+      setCouponError(err instanceof Error ? err.message : 'No se pudo quitar el cupón.');
     } finally {
       setRemovingCoupon(false);
     }
@@ -192,7 +192,7 @@ function CheckoutSection({
       body = { puntoDeEntregaId: selectedPointId };
     } else {
       if (!localidad || !calle || !numero) {
-        setError('Localidad, calle y n?mero son obligatorios.');
+        setError('Localidad, calle y número son obligatorios.');
         return;
       }
       body = {
@@ -223,9 +223,9 @@ function CheckoutSection({
       const message = err instanceof Error ? err.message : 'No se pudo realizar el pedido.';
       const lower = message.toLowerCase();
       if (lower.includes('venc')) {
-        setError('El voucher ya no es v?lido. Quit? el voucher aplicado e intent? realizar el pedido nuevamente.');
-      } else if (lower.includes('cup?n') || lower.includes('cupon')) {
-        setError('El cup?n ya no es v?lido. Quit? el cup?n aplicado e intent? realizar el pedido nuevamente.');
+        setError('El voucher ya no es válido. Quitá el voucher aplicado e intentá realizar el pedido nuevamente.');
+      } else if (lower.includes('cupón') || lower.includes('cupon')) {
+        setError('El cupón ya no es válido. Quitá el cupón aplicado e intentá realizar el pedido nuevamente.');
       } else {
         setError(message);
       }
@@ -244,7 +244,7 @@ function CheckoutSection({
 
   return (
     <View style={styles.checkout}>
-      <Text style={styles.checkoutTitle}>Direcci?n de entrega</Text>
+      <Text style={styles.checkoutTitle}>Dirección de entrega</Text>
 
       {deliveryPoints.length > 0 && (
         <View style={styles.modeRow}>
@@ -261,7 +261,7 @@ function CheckoutSection({
             onPress={() => setMode('manual')}
           >
             <Text style={[styles.modeBtnText, mode === 'manual' && styles.modeBtnTextActive]}>
-              Nueva direcci?n
+              Nueva dirección
             </Text>
           </TouchableOpacity>
         </View>
@@ -294,7 +294,7 @@ function CheckoutSection({
               <TextInput style={styles.input} value={calle} onChangeText={setCalle} placeholder="Ej: Av. Italia" />
             </View>
             <View style={styles.formCol}>
-              <Text style={styles.label}>N?mero *</Text>
+              <Text style={styles.label}>Número *</Text>
               <TextInput style={styles.input} value={numero} onChangeText={setNumero} placeholder="2547" />
             </View>
           </View>
@@ -312,19 +312,19 @@ function CheckoutSection({
 
           <View style={styles.switchRow}>
             <Switch value={guardarEnCuenta} onValueChange={setGuardarEnCuenta} trackColor={{ true: Brand.primary }} />
-            <Text style={styles.switchLabel}>Guardar esta direcci?n en mi cuenta</Text>
+            <Text style={styles.switchLabel}>Guardar esta dirección en mi cuenta</Text>
           </View>
         </View>
       )}
 
       <View style={styles.discountSection}>
-        <Text style={styles.checkoutTitle}>Cup?n de descuento</Text>
+        <Text style={styles.checkoutTitle}>Cupón de descuento</Text>
 
         {appliedCoupon ? (
           <View style={styles.discountApplied}>
             <View style={styles.discountAppliedInfo}>
               <Text style={styles.discountAppliedLabel}>
-                Cup?n {appliedCoupon.code} ({appliedCoupon.percentage}%)
+                Cupón {appliedCoupon.code} ({appliedCoupon.percentage}%)
               </Text>
               <Text style={styles.discountAppliedAmount}>-{formatOrderPrice(appliedCoupon.discountAmount)}</Text>
             </View>
@@ -341,7 +341,7 @@ function CheckoutSection({
             <View style={styles.couponRow}>
               <TextInput
                 style={[styles.input, styles.couponInput]}
-                placeholder="C?digo de cup?n"
+                placeholder="Código de cupón"
                 placeholderTextColor={Brand.gray400}
                 autoCapitalize="characters"
                 value={couponCode}
@@ -387,7 +387,7 @@ function CheckoutSection({
             </TouchableOpacity>
           </View>
         ) : availableVouchers.length === 0 ? (
-          <Text style={styles.label}>No ten?s vouchers disponibles para este local.</Text>
+          <Text style={styles.label}>No tenés vouchers disponibles para este local.</Text>
         ) : (
           <View style={styles.voucherList}>
             {availableVouchers.map((voucher) => {
@@ -401,7 +401,7 @@ function CheckoutSection({
                 >
                   <View style={styles.voucherOptionRow}>
                     <Text style={styles.pointMain}>
-                      {voucher.code} ? {formatOrderPrice(voucher.amount)}
+                      {voucher.code} · {formatOrderPrice(voucher.amount)}
                     </Text>
                     {isApplying && <ActivityIndicator size="small" color={Brand.primary} />}
                   </View>
@@ -561,7 +561,7 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
       {!loading && !isActiveCart(cart) && (
         <View style={styles.empty}>
           <ShoppingCartIcon size={56} color={Brand.gray400} />
-          <Text style={styles.emptyText}>Tu carrito est? vac?o.</Text>
+          <Text style={styles.emptyText}>Tu carrito está vacío.</Text>
           <TouchableOpacity
             onPress={() =>
               router.push({ pathname: '/(tabs)/local/[id]', params: { id: String(restaurantId) } })
