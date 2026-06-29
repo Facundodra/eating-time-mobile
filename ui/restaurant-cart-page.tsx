@@ -1,6 +1,6 @@
-import * as WebBrowser from 'expo-web-browser';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -23,10 +23,10 @@ import {
 } from 'react-native-heroicons/outline';
 
 import { Brand } from '@/constants/theme';
+import { notifyCartRefresh } from '@/lib/cliente/cart-refresh';
 import { getActiveCartItems, isActiveCart } from '@/lib/cliente/cart-utils';
 import { formatOrderPrice } from '@/lib/cliente/order-utils';
 import type { AppliedCartCoupon, Cart, DeliveryPoint, OrderRequest, Restaurant, Voucher } from '@/lib/cliente/types';
-import { notifyCartRefresh } from '@/lib/cliente/cart-refresh';
 import {
   applyCartCoupon,
   applyCartVoucher,

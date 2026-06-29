@@ -5,7 +5,7 @@ export function getActiveCartItems(cart: Cart | null) {
 }
 
 /** Carrito vigente: EN_CARRITO, no eliminado y con ítems activos. */
-export function isActiveCart(cart: Cart | null): boolean {
+export function isActiveCart(cart: Cart | null): cart is Cart {
   if (!cart || cart.eliminacion != null) return false;
   if (cart.estado !== 'EN_CARRITO') return false;
   return getActiveCartItems(cart).length > 0;
