@@ -576,13 +576,24 @@ export default function RestaurantCartPage({ restaurantId }: { restaurantId: num
         <>
           {activeItems.map((item) => {
             const isUpdating = updatingDishId === item.platoId;
+            const discountPercent =
+              item.descuentoId != null
+                ? Math.round((1 - item.total / (item.cantidad * item.costoUnitario)) * 100)
+                : 0;
             return (
               <View key={item.id} style={styles.itemCard}>
                 <View style={styles.itemInfo}>
                   <Text style={styles.itemName} numberOfLines={1}>
                     {item.nombre ?? `Plato #${item.platoId}`}
                   </Text>
-                  <Text style={styles.itemUnit}>${item.costoUnitario.toFixed(2)} c/u</Text>
+                  <View style={styles.itemUnitRow}>
+                    <Text style={styles.itemUnit}>${item.costoUnitario.toFixed(2)} c/u</Text>
+                    {discountPercent > 0 && (
+                      <View style={styles.discountBadge}>
+                        <Text style={styles.discountBadgeText}>-{discountPercent}%</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
 
                 <View style={styles.itemActions}>
@@ -671,7 +682,10 @@ const styles = StyleSheet.create({
   },
   itemInfo: { flex: 1 },
   itemName: { fontSize: 14, fontWeight: '600', color: Brand.black },
-  itemUnit: { fontSize: 11, color: Brand.gray400, marginTop: 2 },
+  itemUnitRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  itemUnit: { fontSize: 11, color: Brand.gray400 },
+  discountBadge: { backgroundColor: Brand.primary, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
+  discountBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
   itemActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   qtyControl: {
     flexDirection: 'row',
